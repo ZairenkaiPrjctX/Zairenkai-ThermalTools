@@ -1,0 +1,10 @@
+{
+  "Sensors": [
+    {"Name": "skin", "Type": "SKIN", "Multiplier": 0.001, "Monitor": true,
+     "HotThreshold": ["NaN", 39.0, 43.0, 45.0, 46.5, 52.0, 55.0],
+     "HotHysteresis": [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]},
+    {"Name": "BIG", "Type": "CPU", "Multiplier": 0.001,
+     "HotThreshold": ["NaN", "NaN", "NaN", 95.0, "NaN", "NaN", 115.0]}
+  ],
+  "CoolingDevices": [{"Name": "fan-virtual", "Type": "FAN"}]
+}

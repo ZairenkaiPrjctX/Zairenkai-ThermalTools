@@ -1,0 +1,10 @@
+thermal_zone0    tsens_tz_sensor1             soc       41.5 °C                    trips 2
+thermal_zone1    cpu-1-0-usr                  cpu       43.2 °C                    trips 0
+thermal_zone2    skin-therm                   skin      36.1 °C                    trips 1
+thermal_zone3    battery                      battery   30.5 °C                    trips 0
+thermal_zone4    pa-therm0                    unknown   unsupported                trips 0
+pm8150_tz        temp1_input                  unknown   38.0 °C
+framework (Current temperatures from HAL):
+  cpu-1-0                      CPU              41.5 °C
+  skin-therm                   SKIN             36.1 °C
+  vbat                         BCL_VOLTAGE      3850.0 mV

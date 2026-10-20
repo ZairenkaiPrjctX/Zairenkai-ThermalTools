@@ -1,0 +1,3 @@
+[ro.product.manufacturer]: [Synthetic]
+[ro.board.platform]: [mt6768]
+[ro.build.version.sdk]: [31]

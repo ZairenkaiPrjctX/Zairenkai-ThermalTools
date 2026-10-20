@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "google-shusky",
+  "oem": "google",
+  "brands": ["google"],
+  "family": "AOSP device/google/shusky (shiba, husky)",
+  "devices": ["shiba", "husky"],
+  "soc": {"vendor": "google_tensor", "model": "zuma", "board_platform": null},
+  "min_sdk": null,
+  "config_files": [
+    {
+      "format": "pixel_thermal_info_json",
+      "path": "/vendor/etc/thermal_info_config.json",
+      "evidence": "device-shusky-common.mk copies thermal/thermal_info_config_$(TARGET_DEVICE).json to $(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json"
+    },
+    {
+      "format": "pixel_thermal_info_json",
+      "path": "/vendor/etc/thermal_info_config_charge.json",
+      "evidence": "device-shusky-common.mk copies thermal/thermal_info_config_charge_$(TARGET_DEVICE).json to $(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config_charge.json"
+    }
+  ],
+  "controls": [],
+  "evidence": [
+    {
+      "kind": "public_source",
+      "reference": "https://android.googlesource.com/device/google/shusky/+/a3188edbe84db3d3a2269db543c215d2d739f367/device-shusky-common.mk",
+      "note": "PRODUCT_COPY_FILES rule for the thermal configuration (lines 18-25)"
+    },
+    {
+      "kind": "public_source",
+      "reference": "https://android.googlesource.com/device/google/shusky/+/a3188edbe84db3d3a2269db543c215d2d739f367/thermal/thermal_info_config_shiba.json",
+      "note": "parsed and validated by zthermal: 62 sensors, 8 cooling devices, 0 errors"
+    },
+    {
+      "kind": "public_source",
+      "reference": "https://android.googlesource.com/device/google/shusky/+/a3188edbe84db3d3a2269db543c215d2d739f367/thermal/thermal_info_config_husky.json",
+      "note": "parsed and validated by zthermal: 59 sensors, 8 cooling devices, 0 errors"
+    },
+    {
+      "kind": "public_source",
+      "reference": "https://android.googlesource.com/device/google/zuma/+/ed3585cd0d6b98a63034833ad7fac992b41e7bd9/BoardConfig-common.mk",
+      "note": "TARGET_SOC := zuma; shiba/BoardConfig.mk includes device/google/zuma/BoardConfig-common.mk"
+    }
+  ],
+  "validation": {"hardware_tested": false, "last_reviewed": "2026-10-20"},
+  "limitations": [
+    "Built from AOSP main; a shipping build may carry a different configuration revision.",
+    "No control is offered: the profile describes configuration, it does not authorize changes."
+  ]
+}

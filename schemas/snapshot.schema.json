@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zairenkaiprjctx.github.io/schemas/zthermal/snapshot.schema.json",
+  "title": "zthermal snapshot",
+  "description": "Output of `zthermal snapshot`. The top level, the summary and the capabilities are the integration contract (schema_version 1); the nested sysfs, framework and adapter records are diagnostic detail and may gain fields.",
+  "type": "object",
+  "required": ["schema_version", "tool_version", "generated_unix_ms", "root", "redacted", "identity", "sources", "summary", "sysfs", "thermalservice", "battery", "adapters", "capabilities"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "tool_version": {"type": "string"},
+    "generated_unix_ms": {"type": "integer", "minimum": 0},
+    "root": {"enum": ["device", "fixture"]},
+    "redacted": {"type": "boolean"},
+    "identity": {"type": "object", "required": ["schema_version", "soc_vendor", "oem_family", "device", "missing"]},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "status", "detail"],
+        "properties": {
+          "source": {"type": "string"},
+          "status": {"enum": ["valid", "unsupported", "unavailable", "permission_denied", "parse_error", "stale", "inconsistent", "unknown"]},
+          "detail": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zones", "zones_valid", "zones_invalid", "cooling_devices", "hottest_zone", "framework_status", "battery_millicelsius"],
+      "properties": {
+        "zones": {"type": "integer"},
+        "zones_valid": {"type": "integer"},
+        "zones_invalid": {"type": "integer"},
+        "cooling_devices": {"type": "integer"},
+        "hottest_zone": {
+          "type": ["object", "null"],
+          "required": ["source", "name", "millicelsius"],
+          "properties": {"source": {"type": "string"}, "name": {"type": "string"}, "millicelsius": {"type": "integer"}}
+        },
+        "framework_status": {"enum": [null, "none", "light", "moderate", "severe", "critical", "emergency", "shutdown"]},
+        "battery_millicelsius": {"type": ["integer", "null"]}
+      }
+    },
+    "sysfs": {"type": "object", "required": ["thermal_class_present", "zones", "cooling_devices", "hwmon", "truncated"]},
+    "thermalservice": {"type": ["object", "null"]},
+    "battery": {"type": ["object", "null"]},
+    "adapters": {"type": "array", "items": {"type": "object", "required": ["adapter", "applies", "evidence", "capabilities", "config_files", "notes"]}},
+    "capabilities": {"type": "array", "items": {"$ref": "capability.schema.json"}}
+  }
+}

@@ -1,0 +1,8 @@
+Current Battery Service state:
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 2
+  health: 2
+  present: true
+  temperature: 305

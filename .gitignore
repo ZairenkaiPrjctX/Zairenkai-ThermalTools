@@ -10,3 +10,7 @@
 *.p12
 *.jks
 *.keystore
+
+# Rust
+/target/
+/dist/

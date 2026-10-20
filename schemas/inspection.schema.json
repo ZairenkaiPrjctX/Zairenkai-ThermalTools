@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zairenkaiprjctx.github.io/schemas/zthermal/inspection.schema.json",
+  "title": "zthermal configuration inspection",
+  "description": "Output of `zthermal inspect-config --json` and `validate-config --json`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "path", "size", "sha256", "detection", "summary", "findings", "safety_facts", "round_trip"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "path": {"type": "string"},
+    "size": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "detection": {
+      "type": "object",
+      "required": ["format", "reason", "opaque"],
+      "properties": {
+        "format": {"enum": ["qcom_thermal_engine", "pixel_thermal_info_json", "xiaomi_thermald_devices", "opaque", "unknown_text"]},
+        "reason": {"type": "string"},
+        "opaque": {"type": ["object", "null"]}
+      }
+    },
+    "summary": {"type": "object"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message", "location"],
+        "properties": {
+          "severity": {"enum": ["info", "warning", "error"]},
+          "code": {"type": "string"},
+          "message": {"type": "string"},
+          "location": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "safety_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["location", "description"],
+        "properties": {"location": {"type": "string"}, "description": {"type": "string"}}
+      }
+    },
+    "round_trip": {
+      "type": ["object", "null"],
+      "required": ["byte_exact", "model_equal"],
+      "properties": {"byte_exact": {"type": "boolean"}, "model_equal": {"type": "boolean"}}
+    }
+  }
+}

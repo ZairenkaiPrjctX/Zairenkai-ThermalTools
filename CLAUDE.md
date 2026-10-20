@@ -8,21 +8,40 @@ put detail in `AGENT/`.
 
 ## Current state (read first)
 
-As of 2026-10-18 this repository contained **no source code** (GitHub API 2026-10-18: repository size 0, no branches, no commits; ls-remote returned no refs.).
-Until that changes:
+This repository is **Zairenkai ThermalTools**: a Rust workspace (MSRV 1.85) that builds the
+`zthermal` CLI. Architecture: `docs/ARCHITECTURE.md`.
+- `crates/zthermal-core`: no I/O. Readings, identity, capabilities, config parsers (Qualcomm
+  thermal-engine, Pixel thermal_info_config, opaque detection), diff, profiles, policy.
+- `crates/zthermal-platform`: SysRoot reads, Runner commands, sysfs, dumpsys, vendor
+  adapters, backups, snapshots, the transaction journal.
+- `crates/zthermal`: the CLI.
 
-- Do not describe an architecture, language, or toolchain as fact. Record discoveries in
-  `AGENT/PROJECT_CONTEXT.md` with evidence (file paths, manifests, command output).
-- When the first real code lands, update this file's **Commands** table and
-  `AGENT/ARCHITECTURE.md` in the same pull request.
+Nothing has run on an Android device yet (`docs/COMPATIBILITY_MATRIX.md`).
+
+Non-negotiables in this repo (`docs/SAFETY.md`):
+- Never write trip points, zone `mode`/`policy`/`emul_temp`, cooling-device states, CPU/GPU
+  frequency limits, or vendor/system configuration. `policy::denied_target` enforces it.
+- `VALIDATED_CONTROLS` stays empty until a control has a recorded hardware test. Never infer
+  write capability from a writable node, root access, a vendor name or a profile.
+- Never decode, decrypt or de-obfuscate vendor files. Opaque files are hashed and reported.
+- Parsers keep unknown lines and keys and report them. Nothing is dropped silently.
+- Never substitute a value for a failed read. Every reading carries a `DataStatus`.
+- Tests use fixtures (`SysRoot`, `FakeRunner`, `tests/fixtures`), never the host's `/sys`,
+  `/proc` or `/vendor`, and never need root.
+- Do not commit vendor configuration files. Reference them by URL and commit
+  (`docs/CONFIG_FORMATS.md`). Profiles need published evidence; no fictional devices.
 
 ## Commands
 
 | Purpose | Command | Status |
 |---|---|---|
-| Build | — | Not Configured |
-| Test | — | Not Configured |
-| Lint / format | — | Not Configured |
+| Build | `cargo build --workspace` | Verified. Evidence: 2026-10-20 |
+| Test | `cargo test --workspace` | Verified. Evidence: 85 passed (42 core + 33 platform + 3 CLI unit + 7 CLI integration), 2026-10-20 |
+| Lint / format | `cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check` | Verified. Evidence: clean, 2026-10-20 |
+| MSRV | `cargo +1.85.0 test --workspace` | Verified. Evidence: passed, 2026-10-20 |
+| JSON schemas | `python3 scripts/check-schemas.py target/debug/zthermal` (needs `jsonschema`) | Verified. Evidence: 4 snapshots, 6 inspections, 1 profile valid, 2026-10-20 |
+| Shell lint | `shellcheck scripts/*.sh` | Verified. Evidence: clean (0.10.0), 2026-10-20 |
+| Android binaries | `ANDROID_NDK_HOME=<ndk> scripts/build-android.sh` | Verified. Evidence: NDK r27d, arm64-v8a/x86_64/armeabi-v7a, 16 KB LOAD alignment checked, 2026-10-20 |
 | Validate agent foundation | `python3 <path-to-.github>/agent-foundation/scripts/validate_agent_setup.py .` | Configured |
 
 Only list commands that exist in this repository. Never invent one.

@@ -1,0 +1,6 @@
+format qcom_thermal_engine  old 7c121f521133  new 60ca1e582461
+changed  [SKIN-MONITOR].actions: cpu0+gpu cpu0+gpu shutdown -> cpu0+gpu cpu0+gpu report
+         SAFETY: removes a shutdown action
+changed  [SKIN-MONITOR].thresholds: 45000 47000 57000 -> 45000 47000 62000
+         SAFETY: moves a thresholds value later (less protective)
+2 changes, 2 weaken thermal protection
