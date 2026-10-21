@@ -1,0 +1,9 @@
+[info] binary         zthermal 0.2.0 for <arch>
+[info] root           fixture tests/fixtures/devices/synthetic-qcom/
+[info] privilege      not applicable in fixture mode (no live process identity is read)
+[ok  ] source         getprop: Valid
+[info] source         dumpsys: Unknown (not requested (--framework))
+[ok  ] thermal_sysfs  5 zones (4 valid), 2 cooling devices
+[info] selinux        enforcing
+[ok  ] profiles       1 profiles valid
+[info] controls       0 validated writable controls in this release

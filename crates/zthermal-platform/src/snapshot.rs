@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! One read-only snapshot of everything the toolkit can learn about a device, and its
 //! redaction. A snapshot stays on the device or host unless the user moves it.
 
@@ -7,7 +9,7 @@ use zthermal_core::config::sha256_hex;
 use zthermal_core::identity::DeviceIdentity;
 use zthermal_core::reading::DataStatus;
 
-use crate::adapters::{probe_all, AdapterReport, Context};
+use crate::adapters::{probe_all, AdapterReport, Context, FrameworkProbe};
 use crate::android::{BatteryDump, ThermalServiceDump};
 use crate::device::{self, SourceStatus};
 use crate::exec::Runner;
@@ -91,9 +93,14 @@ pub fn collect(root: &SysRoot, runner: &dyn Runner, opts: &Options) -> Snapshot 
     let identity = device::identity(root, &props);
     let sysfs = discover(root);
     let mut sources = vec![prop_status];
+    let mut framework = None;
     let (thermalservice, battery) = if opts.framework {
         let (t, ts) = device::thermalservice(runner);
         let (b, bs) = device::battery(runner);
+        framework = Some(FrameworkProbe {
+            thermalservice: ts.clone(),
+            battery: bs.clone(),
+        });
         sources.extend([ts, bs]);
         (t, b)
     } else {
@@ -109,6 +116,7 @@ pub fn collect(root: &SysRoot, runner: &dyn Runner, opts: &Options) -> Snapshot 
         props: &props,
         identity: &identity,
         inventory: &sysfs,
+        framework: framework.as_ref(),
     };
     let adapters = probe_all(&ctx);
     let capabilities = adapters

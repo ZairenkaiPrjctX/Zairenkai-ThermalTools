@@ -1,11 +1,58 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Capabilities every Linux/Android device can offer: kernel thermal sysfs, hwmon and the
 //! Android framework diagnostics. Controls are never offered here.
 
-use zthermal_core::capability::{Capability, CapabilityState, Privilege};
+use zthermal_core::capability::{Capability, CapabilityState, Privilege, ProbeRecord};
 use zthermal_core::policy::validated_controls;
 use zthermal_core::reading::DataStatus;
 
 use super::{AdapterReport, Context};
+use crate::device::SourceStatus;
+
+/// A framework capability from what was actually observed. Without a probe in this run the
+/// state stays `VALIDATION_REQUIRED`, which never implies that the command succeeded.
+fn framework_capability(
+    cap: Capability,
+    android: bool,
+    probe: Option<&SourceStatus>,
+) -> Capability {
+    let Some(p) = probe else {
+        return if android {
+            cap.with(
+                CapabilityState::ValidationRequired,
+                Some("not probed in this run (use --framework); needs the shell or root".into()),
+            )
+        } else {
+            cap.with(
+                CapabilityState::Unsupported,
+                Some("not an Android system (no ro.build.version.sdk)".into()),
+            )
+        };
+    };
+    let (state, reason) = match p.status {
+        DataStatus::Valid => (CapabilityState::AvailableReadOnly, None),
+        DataStatus::Unsupported => (CapabilityState::Unsupported, p.detail.clone()),
+        DataStatus::PermissionDenied => (CapabilityState::PermissionDenied, p.detail.clone()),
+        DataStatus::ParseError => (
+            CapabilityState::Error,
+            Some(format!(
+                "output not recognized: {}",
+                p.detail.clone().unwrap_or_default()
+            )),
+        ),
+        _ => (CapabilityState::TemporarilyUnavailable, p.detail.clone()),
+    };
+    let mut cap = cap
+        .with(state, reason)
+        .evidence(format!("probe: {}", p.source));
+    cap.probe = Some(ProbeRecord {
+        source: p.source.clone(),
+        status: p.status,
+        detail: p.detail.clone(),
+    });
+    cap
+}
 
 pub fn probe(ctx: &Context<'_>) -> AdapterReport {
     let mut r = AdapterReport::new("generic");
@@ -133,20 +180,15 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
             "android.permission.DUMP (adb shell or root)",
             Privilege::Shell,
         );
-        r.capabilities.push(if android {
-            cap.with(
-                CapabilityState::ValidationRequired,
-                Some(
-                    "needs the shell or root; its availability is decided when the command runs"
-                        .into(),
-                ),
-            )
-        } else {
-            cap.with(
-                CapabilityState::Unsupported,
-                Some("not an Android system (no ro.build.version.sdk)".into()),
-            )
+        let probe = ctx.framework.map(|f| {
+            if id == "framework.thermal_status" {
+                &f.thermalservice
+            } else {
+                &f.battery
+            }
         });
+        r.capabilities
+            .push(framework_capability(cap, android, probe));
     }
 
     let controls = validated_controls();
@@ -179,6 +221,7 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
 mod tests {
     use super::*;
     use crate::adapters::testutil::Fixture;
+    use crate::adapters::FrameworkProbe;
     use crate::sysroot::testutil::TempDir;
 
     #[test]
@@ -230,5 +273,105 @@ mod tests {
             .capabilities
             .iter()
             .all(|c| c.state != CapabilityState::AvailableWritable && !c.hardware_tested));
+    }
+
+    fn framework_state(fw: Option<FrameworkProbe>, sdk: bool) -> (Capability, Capability) {
+        let t = TempDir::new("generic-fw");
+        let props: &[(&str, &str)] = if sdk {
+            &[("ro.build.version.sdk", "34")]
+        } else {
+            &[]
+        };
+        let mut fx = Fixture::new(t.path(), props);
+        fx.framework = fw;
+        let r = probe(&fx.ctx());
+        let get = |id: &str| r.capabilities.iter().find(|c| c.id == id).unwrap().clone();
+        (
+            get("framework.thermal_status"),
+            get("framework.battery_temperature"),
+        )
+    }
+
+    fn status(source: &str, status: DataStatus, detail: Option<&str>) -> SourceStatus {
+        SourceStatus {
+            source: source.into(),
+            status,
+            detail: detail.map(String::from),
+        }
+    }
+
+    fn both(ts: SourceStatus, bat: SourceStatus) -> Option<FrameworkProbe> {
+        Some(FrameworkProbe {
+            thermalservice: ts,
+            battery: bat,
+        })
+    }
+
+    #[test]
+    fn framework_capabilities_follow_the_probe() {
+        let ok = status("dumpsys thermalservice", DataStatus::Valid, None);
+        let (t, b) = framework_state(
+            both(
+                ok.clone(),
+                status(
+                    "dumpsys battery",
+                    DataStatus::PermissionDenied,
+                    Some("Permission Denial"),
+                ),
+            ),
+            true,
+        );
+        assert_eq!(t.state, CapabilityState::AvailableReadOnly);
+        assert_eq!(t.probe.as_ref().unwrap().status, DataStatus::Valid);
+        assert_eq!(b.state, CapabilityState::PermissionDenied);
+        let (t, _) = framework_state(
+            both(
+                status(
+                    "dumpsys thermalservice",
+                    DataStatus::Unsupported,
+                    Some("dumpsys: not found"),
+                ),
+                ok.clone(),
+            ),
+            true,
+        );
+        assert_eq!(t.state, CapabilityState::Unsupported);
+        let (t, _) = framework_state(
+            both(
+                status(
+                    "dumpsys thermalservice",
+                    DataStatus::ParseError,
+                    Some("no recognizable section"),
+                ),
+                ok.clone(),
+            ),
+            true,
+        );
+        assert_eq!(t.state, CapabilityState::Error);
+        assert!(t.reason.unwrap().contains("output not recognized"));
+        let (t, _) = framework_state(
+            both(
+                status(
+                    "dumpsys thermalservice",
+                    DataStatus::Unavailable,
+                    Some("timed out"),
+                ),
+                ok,
+            ),
+            true,
+        );
+        assert_eq!(t.state, CapabilityState::TemporarilyUnavailable);
+    }
+
+    #[test]
+    fn unprobed_capabilities_say_so() {
+        let (t, b) = framework_state(None, true);
+        for c in [t, b] {
+            assert_eq!(c.state, CapabilityState::ValidationRequired);
+            assert!(c.probe.is_none());
+            assert!(c.reason.unwrap().contains("not probed"));
+        }
+        let (t, _) = framework_state(None, false);
+        assert_eq!(t.state, CapabilityState::Unsupported);
     }
 }

@@ -14,18 +14,21 @@ with a recorded report). No row has reached **hardware**.
 
 ## SoC and OEM support
 
-| Vendor | Recognized from | Read support | Config support | Controls | Validation |
-|---|---|---|---|---|---|
-| Any Linux / Android | — | thermal zones, trip points, cdev bindings, cooling devices, hwmon | — | none | fixtures |
-| Android framework | `ro.build.version.sdk` | `dumpsys thermalservice` (status, HAL temperatures, cooling devices), `dumpsys battery` | — | none | fixtures; dump format checked against AOSP frameworks/base source |
-| Qualcomm | `ro.soc.manufacturer`, `ro.soc.model`, `ro.board.platform`, `thermal-engine*.conf`, `/vendor/bin/thermal-engine`, tsens zone names | generic | `thermal-engine.conf`: parse, validate, diff, backup | none | public source (13 published files) |
-| MediaTek | `ro.soc.*`, `mt*` platforms, legacy `mtkts*` zones, `/vendor/etc/.tp`, `thermal_manager` | generic | `.tp` files detected and hashed only (enciphered) | none | public source (one vendor blob set) |
-| Google Tensor (Pixel) | `ro.soc.*`, gs101/gs201/zuma/…, `thermal_info_config*.json`, `vendor.thermal.config` | generic | `thermal_info_config*.json`: parse, validate, diff, backup, includes | none | public source (4 shusky files, HAL parser source) |
-| Xiaomi (OEM) | manufacturer/brand props, `init.svc.mi_thermald`, `/vendor/bin/mi_thermald` | generic | `thermal-*.conf` hashed only (binary); `thermald-devices.conf` recognized | none | public source (one blob set) |
-| Samsung Exynos, Unisoc | identity only (`exynos`, `s5e`, `universal`, `ums`, `sc9`, `ud7`) | generic | none | none | fixtures |
-| Other OEMs (Samsung, OnePlus, Motorola, …) | OEM family from properties | generic | none | none | fixtures |
+Each column is a separate claim. "Identified" never implies the columns to its right.
 
-No vendor-specific adapter exists without published evidence for it.
+| Vendor | Identified from | Generic diagnostics | Config format parsed | Parser validated against published files | Hardware tested | Control modification tested |
+|---|---|---|---|---|---|---|
+| Any Linux / Android | — | yes: thermal zones, trips, cdev bindings, cooling devices, hwmon (fixtures) | — | — | no | no (none exists) |
+| Android framework | `ro.build.version.sdk` | yes: `dumpsys thermalservice`, `dumpsys battery`, probed only with `--framework` (fixtures; format checked against AOSP frameworks/base) | — | — | no | no |
+| Qualcomm | `ro.soc.manufacturer`, `ro.soc.model`, `ro.board.platform`, `thermal-engine*.conf`, `/vendor/bin/thermal-engine`, tsens zone names; service `vendor.thermal-engine` (AOSP marlin init) | yes | `thermal-engine.conf`: parse, validate, diff, backup | yes: 13 files, byte-exact round trip | no | no |
+| MediaTek | `ro.soc.*`, `mt*` platforms, legacy `mtkts*` zones, `/vendor/etc/.tp`; services `thermal`, `thermal_manager`, `thermalloadalgod` (one published blob set) | yes | no: `.tp` files are enciphered, detected and hashed only | detection only (one blob set) | no | no |
+| Google Tensor (Pixel) | `ro.soc.*`, gs101/gs201/zuma/…, `thermal_info_config*.json`, `vendor.thermal.config`; service `vendor.thermal-hal` | yes | `thermal_info_config*.json`: parse, validate, diff, backup, includes | yes: 4 shusky files, rules from the HAL source | no | no |
+| Xiaomi (OEM) | manufacturer/brand props, `/vendor/bin/mi_thermald`; service `mi_thermald` (published Xiaomi sm8250 vendor init) | yes | no: `thermal-*.conf` are binary (hashed only); `thermald-devices.conf` recognized, not interpreted | detection only (one blob set) | no | no |
+| Samsung Exynos, Unisoc | identity only (`exynos`, `s5e`, `universal`, `ums`, `sc9`, `ud7`) | yes | none | — | no | no |
+| Other OEMs (Samsung, OnePlus, Motorola, …) | OEM family from properties | yes | none | — | no | no |
+
+No vendor-specific adapter exists without published evidence for it. Recognizing a SoC or
+OEM does not mean the device is supported beyond generic diagnostics.
 
 ## Device profiles
 
@@ -33,8 +36,8 @@ No vendor-specific adapter exists without published evidence for it.
 |---|---|---|---|
 | `google-shusky` | `shiba`, `husky` | AOSP device/google/shusky @ a3188edb (config install rule and configurations), device/google/zuma @ ed3585cd (`TARGET_SOC := zuma`) | no |
 
-## What would move a row to "hardware"
+## What would move a row to "hardware tested"
 
-Run `zthermal doctor`, `report --framework --no-redact` and `snapshot` on the device. Compare
-the sensor readings with `dumpsys thermalservice`, and the identity with `getprop`. Record the
-report in `docs/validation/<device>.md`.
+Follow the physical-device protocol in `TESTING.md`, and commit the filled record
+`docs/validation/<oem>-<codename>-<date>.md` (template: `docs/validation/TEMPLATE.md`).
+That would only make the row "hardware tested (read-only)": no control exists to test.

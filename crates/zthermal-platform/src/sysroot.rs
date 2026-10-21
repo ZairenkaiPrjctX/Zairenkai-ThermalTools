@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! File-system root abstraction.
 //!
 //! Every platform read and write goes through a [`SysRoot`]. Production uses `/`; tests
@@ -14,10 +16,21 @@ use zthermal_core::reading::DataStatus;
 /// sysfs attributes are at most one page; anything larger is not a thermal attribute.
 pub const MAX_ATTR_BYTES: u64 = 4096;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct SysRoot {
     root: PathBuf,
+    /// Test-only log of `read_bounded` calls, to prove an operation reads a file once.
+    #[cfg(test)]
+    log: Option<std::sync::Arc<std::sync::Mutex<Vec<String>>>>,
 }
+
+impl PartialEq for SysRoot {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
+
+impl Eq for SysRoot {}
 
 /// A failed read, with the status it maps to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,13 +65,33 @@ pub struct NodeMode {
 
 impl SysRoot {
     pub fn real() -> Self {
-        Self {
-            root: PathBuf::from("/"),
-        }
+        Self::at("/")
     }
 
     pub fn at(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            #[cfg(test)]
+            log: None,
+        }
+    }
+
+    /// A root that records every bounded read (tests only).
+    #[cfg(test)]
+    pub fn recording(root: impl Into<PathBuf>) -> Self {
+        Self {
+            log: Some(Default::default()),
+            ..Self::at(root)
+        }
+    }
+
+    /// How often `abs` was read through [`SysRoot::read_bounded`] (tests only).
+    #[cfg(test)]
+    pub fn reads_of(&self, abs: &str) -> usize {
+        self.log
+            .as_ref()
+            .map(|l| l.lock().unwrap().iter().filter(|p| *p == abs).count())
+            .unwrap_or(0)
     }
 
     pub fn is_real(&self) -> bool {
@@ -87,6 +120,10 @@ impl SysRoot {
 
     /// Read a file of at most `limit` bytes; larger files are refused, not truncated.
     pub fn read_bounded(&self, abs: &str, limit: u64) -> Result<Vec<u8>, ReadError> {
+        #[cfg(test)]
+        if let Some(l) = &self.log {
+            l.lock().unwrap().push(abs.to_string());
+        }
         let f = fs::File::open(self.path(abs)).map_err(|e| ReadError::from_io(abs, &e))?;
         let mut buf = Vec::new();
         f.take(limit + 1)

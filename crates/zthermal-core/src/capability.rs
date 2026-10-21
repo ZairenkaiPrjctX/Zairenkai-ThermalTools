@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Capability model: what the toolkit can do on this device, and how sure it is.
 //!
 //! Recognizing a manufacturer, identifying a SoC, detecting an implementation, parsing a
@@ -72,6 +74,17 @@ pub struct Capability {
     pub reason: Option<String>,
     /// True only with a recorded physical-device test. Always false in this release.
     pub hardware_tested: bool,
+    /// The runtime probe behind `state`, when one ran in this invocation. `None` means the
+    /// state comes from static detection only.
+    pub probe: Option<ProbeRecord>,
+}
+
+/// What one runtime probe (for example `dumpsys thermalservice`) returned.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProbeRecord {
+    pub source: String,
+    pub status: crate::reading::DataStatus,
+    pub detail: Option<String>,
 }
 
 impl Capability {
@@ -96,6 +109,7 @@ impl Capability {
             evidence: vec![],
             reason: None,
             hardware_tested: false,
+            probe: None,
         }
     }
 

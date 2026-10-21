@@ -1,0 +1,7 @@
+format pixel_thermal_info_json  old cd7ada43b3f9  new 123658123957
+changed  Sensors[skin].HotHysteresis: [0.0,1.0,1.0,1.0,1.0,1.0,1.0] -> [0.0,1.0,1.0,0.5,1.0,1.0,1.0]
+         SAFETY: HotHysteresis: reduces the SEVERE hysteresis 1 -> 0.5 (mitigation clears sooner)
+added    Sensors[skin].LogLevel: - -> 1
+added    Sensors[skin].ColdThreshold: - -> ["NaN","NaN","NaN","NaN","NaN","NaN",-5.0]
+         strengthens_protection: ColdThreshold: adds the SHUTDOWN level at -5
+3 changes, 1 weaken thermal protection

@@ -22,7 +22,7 @@ is empty, so no write happens in this release.
 | `crates/zthermal-core/src/config/` | Detection, Qualcomm and Pixel parsers, opaque detection, diff | `config::*::tests`; `docs/CONFIG_FORMATS.md` (24 published files) |
 | `crates/zthermal-core/src/{profile,policy}.rs` | Profiles; modes, allowlist, deny-list, adaptive state machine, plan | `profile::tests`, `policy::tests` |
 | `crates/zthermal-platform/src/{sysroot,exec,sysfs,android,device}.rs` | Readers with bounded I/O and no shell | fixture tests |
-| `crates/zthermal-platform/src/adapters/` | generic, qcom, mediatek, pixel, xiaomi | adapter tests |
+| `crates/zthermal-platform/src/adapters/` | generic, qcom, mediatek, pixel, xiaomi: confirmed vs candidate services, probe-aware framework capabilities, single-read config inspection | adapter tests |
 | `crates/zthermal-platform/src/{backup,snapshot,txn}.rs` | Backups with SHA-256, snapshot and redaction, write journal and rollback | fault-injection tests |
 | `crates/zthermal/src/` | CLI: args, commands, text rendering, exit codes | `crates/zthermal/tests/cli.rs`, `tests/golden/` |
 | `profiles/` | Evidence-backed device profiles (embedded in the binary) | `profile-validate`, `commands::tests` |
@@ -47,7 +47,9 @@ written only by `apply` with validated controls; none exist.
 ## External interfaces
 
 The JSON outputs and exit codes are the contract for Core, the app, the SDK and AFID
-(`docs/INTEGRATION.md`). There is no socket, daemon or network access.
+(`docs/INTEGRATION.md`). Zairenkai-Core consumes `zthermal snapshot` through a read-only
+adapter (Core `crates/zcore-platform/src/thermaltools.rs`). There is no socket, daemon or
+network access.
 
 ## Trust boundaries
 

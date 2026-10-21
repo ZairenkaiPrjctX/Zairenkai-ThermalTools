@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Device facts: Android properties, kernel release, framework dumps.
 //!
 //! Every source can be missing. A failure is recorded with its reason and the matching
@@ -111,7 +113,21 @@ pub fn battery(runner: &dyn Runner) -> (Option<BatteryDump>, SourceStatus) {
                 detail: Some("Permission Denial".into()),
             },
         ),
-        Ok(out) => (Some(parse_battery(&out)), SourceStatus::ok(src)),
+        Ok(out) => {
+            let b = parse_battery(&out);
+            if out.contains("Current Battery Service state") || b.temperature.raw.is_some() {
+                (Some(b), SourceStatus::ok(src))
+            } else {
+                (
+                    Some(b),
+                    SourceStatus {
+                        source: src.into(),
+                        status: DataStatus::ParseError,
+                        detail: Some("no BatteryService state in the output".into()),
+                    },
+                )
+            }
+        }
         Err(e) => (None, SourceStatus::from_exec(src, &e)),
     }
 }
@@ -156,5 +172,17 @@ mod tests {
         let r =
             FakeRunner::default().failing("dumpsys battery", ExecError::Failed("exit 1".into()));
         assert_eq!(battery(&r).1.status, DataStatus::PermissionDenied);
+    }
+
+    #[test]
+    fn malformed_framework_output_is_a_parse_error() {
+        let r = FakeRunner::default()
+            .with(
+                "dumpsys thermalservice",
+                "Can't find service: thermalservice\n",
+            )
+            .with("dumpsys battery", "garbage\n");
+        assert_eq!(thermalservice(&r).1.status, DataStatus::ParseError);
+        assert_eq!(battery(&r).1.status, DataStatus::ParseError);
     }
 }

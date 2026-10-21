@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Recognizing files this toolkit must not interpret: binary, encrypted or compressed data.
 //!
 //! Detection only. No decryption, decoding or key search is ever attempted.
@@ -71,6 +73,9 @@ pub fn assess(data: &[u8]) -> Option<OpaqueInfo> {
             "high-entropy binary (likely encrypted or compressed); no authorized decoder exists, \
              so it is reported and never decoded"
                 .into()
+        }
+        None if !utf8 && ratio < 0.01 => {
+            "not valid UTF-8 (possibly a legacy 8-bit text encoding); not interpreted".into()
         }
         None => "binary data in an unrecognized format".into(),
     };

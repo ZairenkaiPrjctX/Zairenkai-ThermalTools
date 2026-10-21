@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Zairenkai ThermalTools platform layer: everything that touches a device. Reads go through
 //! [`sysroot::SysRoot`] (a fixture directory in tests) and commands through [`exec::Runner`]
 //! (never a shell).

@@ -1,9 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Semantic diff of two configuration files of the same format.
 //!
 //! Changes are reported per section/key (Qualcomm) or per sensor/cooling device key
-//! (Pixel). A change that removes or weakens mitigation is marked `safety` so a reviewer
-//! cannot miss it: a removed section or sensor, a raised trigger, a removed `shutdown`
-//! action, an added `disable`, or a severity level that disappears.
+//! (Pixel). Each change can carry a [`ChangeCategory`]:
+//! - `weakens_protection` (also set in `safety`): a removed section or sensor, a raised hot
+//!   trigger, a lowered cold trigger, a smaller hysteresis, a removed `shutdown` action, an
+//!   added `disable`, or a severity level that disappears;
+//! - `strengthens_protection`: the opposite direction for the same fields;
+//! - `changes_thermal_behaviour`: a field that changes thermal handling in a way whose
+//!   direction cannot be judged from the file alone (bindings, PID terms, sensor inputs).
+//!
+//! Other changes (comments, log levels, unknown keys) carry no category.
 
 use std::collections::BTreeMap;
 
@@ -22,6 +30,14 @@ pub enum ChangeKind {
     Changed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeCategory {
+    WeakensProtection,
+    StrengthensProtection,
+    ChangesThermalBehaviour,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Change {
     pub location: String,
@@ -30,6 +46,10 @@ pub struct Change {
     pub new: Option<String>,
     /// Why this change weakens thermal protection, if it does.
     pub safety: Option<String>,
+    /// Thermal relevance of the change; `None` for changes without thermal effect.
+    pub category: Option<ChangeCategory>,
+    /// What the change does to thermal handling, for every categorized change.
+    pub effect: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,12 +71,37 @@ fn change(
     new: Option<String>,
     safety: Option<String>,
 ) -> Change {
+    let category = safety.as_ref().map(|_| ChangeCategory::WeakensProtection);
+    Change {
+        location,
+        kind,
+        old,
+        new,
+        effect: safety.clone(),
+        safety,
+        category,
+    }
+}
+
+fn categorized(
+    location: String,
+    kind: ChangeKind,
+    old: Option<String>,
+    new: Option<String>,
+    effect: Option<(ChangeCategory, String)>,
+) -> Change {
+    let safety = effect
+        .as_ref()
+        .filter(|(c, _)| *c == ChangeCategory::WeakensProtection)
+        .map(|(_, e)| e.clone());
     Change {
         location,
         kind,
         old,
         new,
         safety,
+        category: effect.as_ref().map(|(c, _)| *c),
+        effect: effect.map(|(_, e)| e),
     }
 }
 
@@ -151,6 +196,9 @@ fn raised(old: &str, new: &str, descending: bool) -> bool {
     })
 }
 
+/// Qualcomm classification is deliberately conservative: the engine is undocumented, so a
+/// changed `algo_type` or `descending` (direction unknown) is still reported as weakening and
+/// nothing is ever reported as strengthening.
 fn qcom_safety(key: &str, old: Option<&str>, new: Option<&str>, sec: &Section) -> Option<String> {
     let trigger_keys = ["thresholds", "thresholds_clr", "set_point", "set_point_clr"];
     match (old, new) {
@@ -279,33 +327,173 @@ fn by_name(list: Vec<&Map<String, Value>>) -> Vec<(String, &Map<String, Value>)>
         .collect()
 }
 
-fn hot_safety(old: &Value, new: &Value) -> Option<String> {
-    let arr = |v: &Value| {
-        v.as_array().map(|a| {
-            a.iter()
-                .map(|x| hal_float(x).unwrap_or(f32::NAN))
-                .collect::<Vec<_>>()
-        })
+/// How a Pixel threshold or hysteresis array behaves (thermal-helper.cpp
+/// `getSeverityFromThresholds`): a hot severity starts at `value >= hot[i]` and holds while
+/// `value > hot[i] - hot_hyst[i]`; a cold severity starts at `value <= cold[i]` and holds
+/// while `value < cold[i] + cold_hyst[i]`. Missing arrays mean all-NaN thresholds and zero
+/// hysteresis.
+#[derive(Clone, Copy, PartialEq)]
+enum ArrayKind {
+    /// Higher value = later trigger = weaker.
+    HotThreshold,
+    /// Lower value = later trigger = weaker.
+    ColdThreshold,
+    /// Smaller value = mitigation released sooner = weaker.
+    Hysteresis,
+}
+
+fn hal_array(v: Option<&Value>, kind: ArrayKind) -> Option<Vec<f32>> {
+    let default = if kind == ArrayKind::Hysteresis {
+        0.0
+    } else {
+        f32::NAN
     };
-    let (o, n) = (arr(old)?, arr(new)?);
-    if o.len() != 7 {
-        return None;
+    match v {
+        None => Some(vec![default; 7]),
+        Some(Value::Array(a)) if a.is_empty() => Some(vec![default; 7]),
+        Some(Value::Array(a)) if a.len() == 7 => a.iter().map(|x| hal_float(x).ok()).collect(),
+        _ => None,
     }
-    if n.len() != 7 {
-        return Some("removes the hot threshold levels".into());
-    }
+}
+
+fn array_effect(
+    key: &str,
+    kind: ArrayKind,
+    old: Option<&Value>,
+    new: Option<&Value>,
+) -> (ChangeCategory, String) {
+    let (Some(o), Some(n)) = (hal_array(old, kind), hal_array(new, kind)) else {
+        return (
+            ChangeCategory::ChangesThermalBehaviour,
+            format!("{key} is malformed on one side; the HAL would reject or ignore it"),
+        );
+    };
+    let mut weaker = Vec::new();
+    let mut stronger = Vec::new();
     for i in 0..7 {
-        if !o[i].is_nan() && n[i].is_nan() {
-            return Some(format!("removes the {} level", SEVERITIES[i]));
-        }
-        if !o[i].is_nan() && n[i] > o[i] {
-            return Some(format!(
-                "raises the {} threshold from {} to {}",
-                SEVERITIES[i], o[i], n[i]
-            ));
+        let sev = SEVERITIES[i];
+        let (a, b) = (o[i], n[i]);
+        match (a.is_nan(), b.is_nan()) {
+            (false, true) => weaker.push(format!("removes the {sev} level")),
+            (true, false) => stronger.push(format!("adds the {sev} level at {b}")),
+            (true, true) => {}
+            (false, false) if a == b => {}
+            (false, false) => {
+                let is_weaker = match kind {
+                    ArrayKind::HotThreshold => b > a,
+                    ArrayKind::ColdThreshold => b < a,
+                    ArrayKind::Hysteresis => b < a,
+                };
+                let what = match kind {
+                    ArrayKind::Hysteresis => format!("{sev} hysteresis {a} -> {b}"),
+                    _ => format!("{sev} threshold {a} -> {b}"),
+                };
+                if is_weaker {
+                    weaker.push(match kind {
+                        ArrayKind::HotThreshold => format!("raises the {what} (triggers later)"),
+                        ArrayKind::ColdThreshold => format!("lowers the {what} (triggers later)"),
+                        ArrayKind::Hysteresis => {
+                            format!("reduces the {what} (mitigation clears sooner)")
+                        }
+                    });
+                } else {
+                    stronger.push(what);
+                }
+            }
         }
     }
-    None
+    if !weaker.is_empty() {
+        (
+            ChangeCategory::WeakensProtection,
+            format!("{key}: {}", weaker.join("; ")),
+        )
+    } else if !stronger.is_empty() {
+        (
+            ChangeCategory::StrengthensProtection,
+            format!("{key}: {}", stronger.join("; ")),
+        )
+    } else {
+        (
+            ChangeCategory::ChangesThermalBehaviour,
+            format!("{key}: same effective values, different text"),
+        )
+    }
+}
+
+/// Fields whose change alters thermal handling in a direction the file cannot tell.
+const BEHAVIOUR_KEYS: &[&str] = &[
+    "Type",
+    "Multiplier",
+    "Offset",
+    "TempPath",
+    "VirtualSensor",
+    "Combination",
+    "CombinationType",
+    "Coefficient",
+    "CoefficientType",
+    "Formula",
+    "TriggerSensor",
+    "BackupSensor",
+    "PIDInfo",
+    "Profile",
+    "ExcludedPowerInfo",
+    "PollingDelay",
+    "PassiveDelay",
+    "StepRatio",
+    "Monitor",
+    "SendCallback",
+    "Hidden",
+    "VrThreshold",
+    "SeverityReference",
+    "OffsetThresholds",
+    "OffsetValues",
+    "PredictorInfo",
+    "ModelPath",
+    // Cooling devices.
+    "ReadPath",
+    "WritePath",
+    "State2Power",
+    "PowerRail",
+    "ScalingAvailableFrequenciesPath",
+];
+
+fn pixel_effect(
+    kind: &str,
+    key: &str,
+    ov: Option<&Value>,
+    nv: Option<&Value>,
+) -> Option<(ChangeCategory, String)> {
+    use ChangeCategory::*;
+    let array = match key {
+        "HotThreshold" => Some(ArrayKind::HotThreshold),
+        "ColdThreshold" => Some(ArrayKind::ColdThreshold),
+        "HotHysteresis" | "ColdHysteresis" => Some(ArrayKind::Hysteresis),
+        _ => None,
+    };
+    if let Some(a) = array {
+        return Some(array_effect(key, a, ov, nv));
+    }
+    match (key, ov, nv) {
+        ("isDisabled", _, Some(Value::Bool(true))) => {
+            Some((WeakensProtection, format!("disables the {kind} entry")))
+        }
+        ("isDisabled", Some(Value::Bool(true)), _) => {
+            Some((StrengthensProtection, format!("enables the {kind} entry")))
+        }
+        ("BindedCdevInfo", Some(_), None) => Some((
+            WeakensProtection,
+            "removes every cooling-device binding of this sensor".into(),
+        )),
+        ("BindedCdevInfo", _, _) => Some((
+            ChangesThermalBehaviour,
+            "changes which cooling devices this sensor throttles and how".into(),
+        )),
+        (k, _, _) if BEHAVIOUR_KEYS.contains(&k) => Some((
+            ChangesThermalBehaviour,
+            format!("changes {k}, which affects how the HAL reads or acts on this entry"),
+        )),
+        _ => None,
+    }
 }
 
 fn pixel_entity_diff(
@@ -337,34 +525,25 @@ fn pixel_entity_diff(
                 (_, None) => ChangeKind::Removed,
                 _ => ChangeKind::Changed,
             };
-            let safety = match (k.as_str(), ov, nv) {
-                ("HotThreshold", Some(o), Some(n)) => hot_safety(o, n),
-                ("HotThreshold", Some(_), None) => Some("removes all hot thresholds".into()),
-                ("isDisabled", _, Some(Value::Bool(true))) => {
-                    Some(format!("disables the {kind} entry"))
-                }
-                ("BindedCdevInfo", Some(_), _) => {
-                    Some("changes which cooling devices this sensor throttles".into())
-                }
-                ("Type", Some(_), Some(_)) => Some("changes the sensor type".into()),
-                _ => None,
-            };
-            out.push(change(
+            out.push(categorized(
                 format!("{loc}.{k}"),
                 ck,
                 ov.map(Value::to_string),
                 nv.map(Value::to_string),
-                safety,
+                pixel_effect(kind, k, ov, nv),
             ));
         }
     }
     for (name, _) in n.iter().filter(|(x, _)| !o.iter().any(|(y, _)| y == x)) {
-        out.push(change(
+        out.push(categorized(
             format!("{kind}[{name}]"),
             ChangeKind::Added,
             None,
             Some("present".into()),
-            None,
+            Some((
+                ChangeCategory::ChangesThermalBehaviour,
+                format!("adds a {kind} entry"),
+            )),
         ));
     }
 }
@@ -467,5 +646,103 @@ mod tests {
         assert_eq!(r.format, ConfigFormat::Opaque);
         assert_eq!(r.changes.len(), 1);
         assert!(r.note.is_some());
+    }
+
+    fn pixel(sensor: &str) -> String {
+        format!(
+            r#"{{"Sensors": [{sensor}], "CoolingDevices": [{{"Name": "fan", "Type": "FAN"}}]}}"#
+        )
+    }
+
+    fn one_change(a: &str, b: &str) -> Change {
+        let r = diff("a", pixel(a).as_bytes(), "b", pixel(b).as_bytes()).unwrap();
+        assert_eq!(r.changes.len(), 1, "{:?}", r.changes);
+        r.changes[0].clone()
+    }
+
+    const BASE: &str = r#"{"Name": "vbat", "Type": "BCL_VOLTAGE",
+        "HotThreshold": ["NaN", 39, 43, 45, 47, 52, 55], "HotHysteresis": [0, 1, 1, 1, 1, 1, 1],
+        "ColdThreshold": ["NaN", 3200, 3100, 3000, "NaN", "NaN", "NaN"], "ColdHysteresis": [0, 50, 50, 50, 0, 0, 0],
+        "Multiplier": 1, "LogLevel": 1, "Comment": "x"}"#;
+
+    #[test]
+    fn cold_thresholds_are_classified() {
+        let lowered = BASE.replace("3200, 3100", "3150, 3100");
+        let c = one_change(BASE, &lowered);
+        assert_eq!(c.category, Some(ChangeCategory::WeakensProtection));
+        assert!(c
+            .safety
+            .as_deref()
+            .unwrap()
+            .contains("lowers the LIGHT threshold 3200 -> 3150"));
+        let raised = BASE.replace("3200, 3100", "3300, 3100");
+        let c = one_change(BASE, &raised);
+        assert_eq!(
+            (c.category, c.safety.is_none()),
+            (Some(ChangeCategory::StrengthensProtection), true)
+        );
+        let removed = BASE.replace(r#"3000, "NaN""#, r#""NaN", "NaN""#);
+        assert!(one_change(BASE, &removed)
+            .safety
+            .as_deref()
+            .unwrap()
+            .contains("removes the SEVERE level"));
+    }
+
+    #[test]
+    fn hysteresis_is_classified() {
+        let smaller = BASE.replace("[0, 1, 1, 1, 1, 1, 1]", "[0, 1, 1, 0.5, 1, 1, 1]");
+        let c = one_change(BASE, &smaller);
+        assert_eq!(c.category, Some(ChangeCategory::WeakensProtection));
+        assert!(c.safety.as_deref().unwrap().contains("clears sooner"));
+        let larger = BASE.replace("[0, 50, 50, 50, 0, 0, 0]", "[0, 80, 50, 50, 0, 0, 0]");
+        assert_eq!(
+            one_change(BASE, &larger).category,
+            Some(ChangeCategory::StrengthensProtection)
+        );
+        // Removing the array means zero hysteresis: weaker when it was non-zero.
+        let gone = BASE.replace(r#""HotHysteresis": [0, 1, 1, 1, 1, 1, 1],"#, "");
+        assert_eq!(
+            one_change(BASE, &gone).category,
+            Some(ChangeCategory::WeakensProtection)
+        );
+        // Same values written differently are not a protection change.
+        let same = BASE.replace("[0, 1, 1, 1, 1, 1, 1]", r#"[0.0, "1", 1, 1, 1, 1, 1]"#);
+        assert_eq!(
+            one_change(BASE, &same).category,
+            Some(ChangeCategory::ChangesThermalBehaviour)
+        );
+    }
+
+    #[test]
+    fn unrelated_changes_are_not_safety_relevant() {
+        for (from, to) in [
+            (r#""LogLevel": 1"#, r#""LogLevel": 2"#),
+            (r#""Comment": "x""#, r#""Comment": "y""#),
+        ] {
+            let c = one_change(BASE, &BASE.replace(from, to));
+            assert_eq!((c.category, c.safety), (None, None), "{from}");
+        }
+        let c = one_change(
+            BASE,
+            &BASE.replace(r#""Multiplier": 1"#, r#""Multiplier": 0.001"#),
+        );
+        assert_eq!(c.category, Some(ChangeCategory::ChangesThermalBehaviour));
+        assert!(c.safety.is_none());
+        let r = diff(
+            "a",
+            pixel(BASE).as_bytes(),
+            "b",
+            pixel(&BASE.replace("55]", "60]")).as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(r.safety_relevant, 1);
+    }
+
+    #[test]
+    fn duplicate_keys_are_still_rejected_in_diffs() {
+        let dup = r#"{"Sensors": [{"Name": "a", "Type": "SKIN", "Type": "CPU"}]}"#;
+        let e = diff("a", dup.as_bytes(), "b", pixel(BASE).as_bytes()).unwrap_err();
+        assert!(e.contains("duplicate key"), "{e}");
     }
 }

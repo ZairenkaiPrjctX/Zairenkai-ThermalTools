@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Qualcomm: the proprietary `thermal-engine` daemon and its `thermal-engine*.conf`.
 //!
 //! Newer Qualcomm platforms may ship no thermal-engine configuration at all; absence is
@@ -9,6 +11,13 @@ use zthermal_core::identity::SocVendor;
 use super::{config_capability, read_config, AdapterReport, Context};
 
 pub const CONFIG_DIRS: &[&str] = &["/vendor/etc", "/system/etc", "/odm/etc"];
+
+/// The thermal-engine service as declared in AOSP device/google/marlin `init.common.rc`
+/// (2bd4cc2e): `service vendor.thermal-engine /vendor/bin/thermal-engine -c
+/// ${sys.qcom.thermalcfg:-/vendor/etc/thermal-engine.conf}`.
+pub const SERVICES: &[&str] = &["vendor.thermal-engine"];
+/// Property that selects the configuration in that declaration.
+pub const CONFIG_PROP: &str = "sys.qcom.thermalcfg";
 
 pub fn is_engine_config(name: &str) -> bool {
     name.starts_with("thermal-engine") && name.ends_with(".conf")
@@ -52,7 +61,8 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
         r.evidence
             .push(format!("{tsens} zones use Qualcomm tsens names"));
     }
-    r.services = ctx.services("thermal-engine");
+    r.services = ctx.services_named(SERVICES);
+    r.candidate_services = ctx.service_candidates("thermal-engine", SERVICES);
     r.applies = !r.evidence.is_empty();
     if !r.applies {
         return r;
@@ -65,6 +75,11 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
         &r.config_files,
         &[ConfigFormat::QcomThermalEngine],
     ));
+    if let Some(cfg) = ctx.prop(CONFIG_PROP) {
+        r.notes.push(format!(
+            "{CONFIG_PROP} = {cfg}: on builds whose init file passes it to thermal-engine (as AOSP marlin does), this is the active configuration"
+        ));
+    }
     if r.config_files.len() > 1 {
         r.notes.push(
             "several configuration files exist; which one the daemon loads depends on the build (init script, properties) and is not inferred"
@@ -95,14 +110,19 @@ mod tests {
             t.path(),
             &[
                 ("ro.board.platform", "msm8998"),
-                ("init.svc.thermal-engine", "running"),
+                ("init.svc.vendor.thermal-engine", "running"),
+                ("init.svc.thermal-engine-v2", "stopped"),
             ],
         );
         let r = probe(&fx.ctx());
         assert!(r.applies);
         assert_eq!(
-            r.services.get("thermal-engine").map(String::as_str),
+            r.services.get("vendor.thermal-engine").map(String::as_str),
             Some("running")
+        );
+        assert_eq!(
+            r.candidate_services.keys().collect::<Vec<_>>(),
+            ["thermal-engine-v2"]
         );
         assert_eq!(r.config_files.len(), 2);
         assert_eq!(r.capabilities[0].state, CapabilityState::AvailableReadOnly);

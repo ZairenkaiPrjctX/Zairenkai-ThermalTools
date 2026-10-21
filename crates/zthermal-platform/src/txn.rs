@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Applying validated control writes as a transaction, with a journal and rollback.
 //!
 //! Order: validate everything → read every original value → persist the journal → write

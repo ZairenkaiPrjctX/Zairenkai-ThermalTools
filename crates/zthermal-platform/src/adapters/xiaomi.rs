@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Xiaomi `mi_thermald`: `/vendor/etc/thermal-*.conf` and `thermald-devices.conf`.
 //!
 //! Published Xiaomi `thermal-*.conf` files are binary (encrypted or encoded); they are
@@ -10,6 +12,11 @@ use super::{config_capability, read_config, AdapterReport, Context};
 
 pub const CONFIG_DIR: &str = "/vendor/etc";
 
+/// The service as declared in a published Xiaomi vendor init file
+/// (TheMuppets proprietary_vendor_xiaomi_sm8250-common 8e68dad4,
+/// `vendor/etc/init/init.mi_thermald.rc`: `service mi_thermald /system/vendor/bin/mi_thermald`).
+pub const SERVICES: &[&str] = &["mi_thermald"];
+
 pub fn is_mi_config(name: &str) -> bool {
     (name.starts_with("thermal-") && name.ends_with(".conf") && !name.starts_with("thermal-engine"))
         || name == "thermald-devices.conf"
@@ -18,7 +25,8 @@ pub fn is_mi_config(name: &str) -> bool {
 pub fn probe(ctx: &Context<'_>) -> AdapterReport {
     let mut r = AdapterReport::new("xiaomi");
     let files = ctx.files_in(CONFIG_DIR, is_mi_config);
-    r.services = ctx.services("mi_thermald");
+    r.services = ctx.services_named(SERVICES);
+    r.candidate_services = ctx.service_candidates("thermald", SERVICES);
     if ctx.identity.oem_family.value == OemFamily::Xiaomi {
         r.evidence.extend(
             ctx.identity
@@ -28,8 +36,8 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
                 .map(|e| format!("{} = {}", e.source, e.value)),
         );
     }
-    if !r.services.is_empty() {
-        r.evidence.push("init.svc.mi_thermald is set".into());
+    if let Some(state) = r.services.get("mi_thermald") {
+        r.evidence.push(format!("init.svc.mi_thermald = {state}"));
     }
     if ctx.root.exists("/vendor/bin/mi_thermald") {
         r.evidence.push("/vendor/bin/mi_thermald exists".into());
@@ -80,5 +88,27 @@ mod tests {
         assert_eq!(r.capabilities[0].state, CapabilityState::DetectedUnverified);
         let none = Fixture::new(t.path(), &[("ro.product.manufacturer", "OnePlus")]);
         assert!(!probe(&none.ctx()).applies, "files alone are not evidence");
+    }
+
+    #[test]
+    fn service_name_is_confirmed_from_the_published_init_file() {
+        let t = TempDir::new("xiaomi-svc");
+        let fx = Fixture::new(
+            t.path(),
+            &[
+                ("init.svc.mi_thermald", "running"),
+                ("init.svc.vendor.thermald-hal", "running"),
+            ],
+        );
+        let r = probe(&fx.ctx());
+        assert!(r.applies, "the confirmed service is evidence by itself");
+        assert_eq!(
+            r.services.get("mi_thermald").map(String::as_str),
+            Some("running")
+        );
+        assert_eq!(
+            r.candidate_services.keys().collect::<Vec<_>>(),
+            ["vendor.thermald-hal"]
+        );
     }
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Android framework diagnostics: `dumpsys thermalservice` and `dumpsys battery`.
 //!
 //! Both need the shell or root (android.permission.DUMP); an ordinary app cannot run them,

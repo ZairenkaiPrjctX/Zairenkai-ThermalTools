@@ -9,8 +9,16 @@ behaviour found in the file) and a round-trip result.
 | `qcom_thermal_engine` | `[SECTION]` headers plus `algo_type`, `thresholds` or `set_point` keys (also when commented out) | lossless, `config::qcom` | byte exact |
 | `pixel_thermal_info_json` | JSON object with `Sensors` or `CoolingDevices` | strict JSON, `config::pixel` | model equal (whitespace not kept) |
 | `xiaomi_thermald_devices` | `[` … `]` blocks with `cooling_name:` lines | recognized only | — |
-| `opaque` | magic bytes (gzip, zip, ELF, zstd, xz, bzip2, lz4), non-text bytes, or printable text with enciphered statistics (entropy > 5.5 bits/byte and < 5 % spaces) | never decoded | — |
-| `unknown_text` | anything else | not interpreted | — |
+| `opaque` | magic bytes (gzip, zip, ELF, zstd, xz, bzip2, lz4), non-text bytes, invalid UTF-8, or printable text with enciphered statistics (all of: entropy > 5.5 bits/byte, < 5 % spaces, ≥ 16 distinct punctuation characters) | never decoded | — |
+| `suspected_encoded` | text made only of Base64/Base64url characters (≥ 64 characters, no spaces), or dense high-entropy text that is neither Base64 nor enciphered-looking | never decoded | — |
+| `unknown_text` | anything else, including empty and whitespace-only files | not interpreted | — |
+
+Entropy is treated as evidence, never as proof of encryption. Base64 and dense identifier
+lists have high entropy too, so `opaque` for text additionally needs a broad set of
+punctuation (published MediaTek `.tp` files use 24 distinct characters; Base64 uses at most
+3). When the evidence does not decide, the result is `suspected_encoded` with the measured
+statistics in the reason. `suspected_encoded` was added in 0.2.0; before it, Base64-like
+text was reported as `opaque`.
 
 The toolkit never writes a configuration file to a device; serialization exists to prove
 that nothing was dropped.
@@ -28,6 +36,19 @@ No public specification exists. The syntax is taken from published files (table 
 `algo_type` values seen: `monitor`, `ss`, `virtual`. Anything else is reported as
 `unverified_algo_type`. Other keys and action names outside the reviewed vocabulary are kept
 and reported as `info`.
+
+Active and commented directives:
+- Only a non-comment line is an active directive. `#algo_type ss`, with any spacing or tabs
+  after `#`, is a comment; it is kept byte for byte and never treated as the section's
+  algorithm.
+- A section without an active `algo_type` gets `algo_type_commented_out` (naming the commented
+  value) or `no_algo_type`. Algorithm-specific checks are skipped, because the engine's
+  behaviour for such a section is unverified. Key-type checks still run: thresholds and set
+  points must be integers.
+- An active `algo_type` with no value is an error (`algo_type_empty`). Several values give
+  `algo_type_extra_values`, and only the first value is checked.
+- Malformed headers (`[ ]`, `[A]x`, `[[A]]`, `[A`) are kept verbatim and reported as
+  `unparsed_line`; they never start a section.
 
 Validation:
 - duplicate sections (error), duplicate keys (warning);
@@ -77,6 +98,48 @@ order and refuses include names containing `/` at the start or `..`.
 
 Temperatures are in °C, except the BCL types (mV, mA, %).
 
+## Semantic diff (`diff-config`)
+
+Each change can carry a `category` and an `effect`; `safety` is set only for
+`weakens_protection`, and only those changes count in `safety_relevant` and give exit 3.
+
+| Category | Meaning |
+|---|---|
+| `weakens_protection` | Mitigation starts later, ends sooner, or disappears |
+| `strengthens_protection` | The opposite direction on the same fields |
+| `changes_thermal_behaviour` | Thermal handling changes, but the file alone cannot say in which direction |
+| none | No thermal effect (comments, log levels, unknown keys) |
+
+Pixel rules follow the HAL's severity computation (`thermal-helper.cpp`,
+`getSeverityFromThresholds`): a hot severity starts at `value >= hot[i]` and holds while
+`value > hot[i] - hot_hyst[i]`; a cold severity starts at `value <= cold[i]` and holds while
+`value < cold[i] + cold_hyst[i]`. A missing array means NaN thresholds and zero hysteresis.
+
+| Field | Weakens | Strengthens |
+|---|---|---|
+| `HotThreshold[i]` | raised, or a level removed (value → NaN) | lowered, or a level added |
+| `ColdThreshold[i]` | lowered, or a level removed | raised, or a level added |
+| `HotHysteresis[i]`, `ColdHysteresis[i]` | reduced (mitigation clears sooner), or the array removed while non-zero | increased |
+| `isDisabled` | set to true | set to false |
+| `BindedCdevInfo` | removed entirely | — (any other change is `changes_thermal_behaviour`) |
+| removed sensor or cooling device | always | — |
+
+`Type`, `Multiplier`, `Offset`, `TempPath`, virtual-sensor inputs (`Combination`,
+`Coefficient`, `Formula`, ...), `PIDInfo`, `Profile`, polling delays, `Hidden`/`Monitor` and
+cooling-device paths are `changes_thermal_behaviour`. These directions apply to the Pixel
+HAL's threshold arrays only; they are not assumed for other algorithms. A malformed array on
+either side is also `changes_thermal_behaviour`, with a note that the HAL would reject it.
+
+Qualcomm rules: a removed mitigation section, a removed `shutdown` action, an added
+`disable` flag, and a trigger or clear value moved later (higher, or lower with
+`descending`) weaken protection.
+
+These rules are deliberately conservative. A changed `algo_type` or `descending` flag is also
+reported as `weakens_protection` (exit 3), although its direction cannot be determined from
+the file: it changes how every value in the section is read. Treat it as "needs review", not
+as proven weakening. Qualcomm diffs never report `strengthens_protection` or
+`changes_thermal_behaviour`, because the engine's semantics are not publicly documented.
+
 ## MediaTek and Xiaomi
 
 - MediaTek `/vendor/etc/.tp/*` (`thermal.conf`, `.thermal_policy_*`, `.ht120.mtc`) are
@@ -121,6 +184,9 @@ AOSP repositories are under `https://android.googlesource.com/`. The LineageOS a
 files were read from `raw.githubusercontent.com` at the commit shown. Rows marked "main" or
 with a branch name were fetched by ref; the hash shown is what `git ls-remote` returned at
 fetch time. The other rows were fetched by commit.
+
+These results were re-checked with zthermal 0.2.0 on 2026-10-21 and are unchanged; the
+0.2.0 detection rules classify the MediaTek and Xiaomi files exactly as 0.1.0 did.
 
 "0 errors" means the published files pass the toolkit's checks. It does not show that the
 checks are complete. The rejection paths are covered by the unit tests in `config::qcom`

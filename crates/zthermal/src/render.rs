@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Text renderings. JSON output is the serde form of the same data.
 
 use std::fmt::Write as _;
@@ -109,6 +111,12 @@ pub fn capabilities(snap: &Snapshot) -> String {
         for e in &a.evidence {
             let _ = writeln!(s, "  evidence: {e}");
         }
+        for (name, state) in &a.services {
+            let _ = writeln!(s, "  service: {name} = {state}");
+        }
+        for (name, state) in &a.candidate_services {
+            let _ = writeln!(s, "  candidate service (unconfirmed): {name} = {state}");
+        }
         for c in &a.capabilities {
             let _ = writeln!(
                 s,
@@ -120,6 +128,14 @@ pub fn capabilities(snap: &Snapshot) -> String {
             );
             if let Some(r) = &c.reason {
                 let _ = writeln!(s, "      {r}");
+            }
+            if let Some(p) = &c.probe {
+                let _ = writeln!(
+                    s,
+                    "      probed: {} -> {}",
+                    p.source,
+                    status_name(&p.status)
+                );
             }
         }
         for n in &a.notes {
@@ -316,6 +332,8 @@ pub fn diff(r: &DiffReport) -> String {
         );
         if let Some(why) = &c.safety {
             let _ = writeln!(s, "         SAFETY: {why}");
+        } else if let (Some(cat), Some(effect)) = (&c.category, &c.effect) {
+            let _ = writeln!(s, "         {}: {effect}", status_name(cat));
         }
     }
     let _ = writeln!(

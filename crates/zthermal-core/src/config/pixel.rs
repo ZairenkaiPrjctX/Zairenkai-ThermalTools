@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Pixel Thermal HAL `thermal_info_config*.json`.
 //!
 //! The checks mirror the HAL's own parser (`hardware/google/pixel` `thermal/utils/

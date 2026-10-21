@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Read-only backups of vendor configuration files, with a SHA-256 manifest.
 //!
 //! A backup copies files out of the device tree into a new directory. There is no restore

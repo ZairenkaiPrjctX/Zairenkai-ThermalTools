@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! `zthermal`: read-only thermal diagnostics, configuration analysis and policy planning.
 //!
 //! Exit codes: 0 success, 1 runtime error, 2 usage error, 3 validation problems found,

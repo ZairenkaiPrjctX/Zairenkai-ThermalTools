@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 ZairenkaiPrjctX contributors
 """Validate zthermal JSON output against schemas/*.json.
 
-Usage: scripts/check-schemas.py <zthermal binary>
+Usage: scripts/check-schemas.py <zthermal binary> [--snapshot FILE ...]
 Runs the binary on the synthetic fixtures in tests/fixtures and validates snapshot,
-inspection and profile documents. Needs the `jsonschema` package (>= 4.18, MIT licence).
+inspection and profile documents. `--snapshot FILE` also validates snapshots taken elsewhere
+(for example `adb pull`ed from a device). Needs the `jsonschema` package (>= 4.18, MIT).
 """
 
 import json
@@ -18,10 +21,19 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    extra = []
+    while "--snapshot" in args:
+        i = args.index("--snapshot")
+        if i + 1 >= len(args):
+            print(__doc__, file=sys.stderr)
+            return 2
+        extra.append(args[i + 1])
+        del args[i : i + 2]
+    if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
-    binary = sys.argv[1]
+    binary = args[0]
     schemas = {p.name: json.loads(p.read_text()) for p in (ROOT / "schemas").glob("*.json")}
     for s in schemas.values():
         Draft202012Validator.check_schema(s)
@@ -38,6 +50,8 @@ def main() -> int:
         docs.append(("snapshot.schema.json", f"snapshot {d.name}", run("snapshot", "--framework", "--root", str(d))))
     for f in sorted((ROOT / "tests/fixtures/configs").iterdir()):
         docs.append(("inspection.schema.json", f"inspect {f.name}", run("inspect-config", "--json", str(f))))
+    for f in extra:
+        docs.append(("snapshot.schema.json", f"snapshot file {f}", json.loads(pathlib.Path(f).read_text())))
     for f in sorted((ROOT / "profiles").glob("*.json")):
         docs.append(("profile.schema.json", f"profile {f.name}", json.loads(f.read_text())))
 
