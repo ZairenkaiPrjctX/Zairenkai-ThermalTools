@@ -1,0 +1,19 @@
+file     tests/fixtures/configs/pixel-base.json
+format   pixel_thermal_info_json (JSON object with Sensors/CoolingDevices keys)
+size     413 bytes
+sha256   cd7ada43b3f98d5de75a86a47d99b1c4ccd63126a80a5478797ae7b42738bf14
+round trip: model equal true, byte exact false
+  top_level_keys: ["Sensors","CoolingDevices"]
+  sensors: 2
+  virtual_sensors: 0
+  sensors_with_hot_thresholds: 2
+  cooling_devices: 1
+  power_rails: 0
+  includes: []
+  has_stats: false
+  units: "temperatures in degrees Celsius except BCL types (mV, mA, %)"
+safety   Sensors[skin].HotThreshold[4]: CRITICAL severity at 46.5
+safety   Sensors[skin].HotThreshold[5]: EMERGENCY severity at 52
+safety   Sensors[skin].HotThreshold[6]: SHUTDOWN severity at 55
+safety   Sensors[BIG].HotThreshold[6]: SHUTDOWN severity at 115
+0 errors, 0 warnings

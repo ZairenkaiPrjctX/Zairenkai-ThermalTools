@@ -1,0 +1,13 @@
+file     tests/fixtures/configs/qcom-invalid.conf
+format   qcom_thermal_engine ([SECTION] headers with thermal-engine keys (algo_type, thresholds, set_point))
+size     136 bytes
+sha256   e4b3e6c1fc6e79288e46aed92bc3f3b4c77550f9d03cb6ecb304dde3c386c5f5
+round trip: model equal true, byte exact true
+error    [M] action_info_count: column 2: "cpu0+gpu" has a different number of '+' parts than "2"
+error    [M] threshold_order: thresholds are not ascending: [50000, 40000]
+error    [M] line 8 duplicate_section: section name appears more than once
+warning  [M] missing_key: ss section without "sensor"
+warning  [M] missing_key: ss section without "device"
+warning  [M] missing_key: ss section without "set_point"
+warning  [M] missing_key: ss section without "set_point_clr"
+3 errors, 4 warnings

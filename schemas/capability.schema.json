@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zairenkaiprjctx.github.io/schemas/zthermal/capability.schema.json",
+  "title": "zthermal capability",
+  "description": "One capability as reported by `zthermal capabilities --json` and in snapshots. A capability is never AVAILABLE_WRITABLE unless a validated, hardware-tested control descriptor matches the device.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "description", "scope", "discovery", "requires", "privilege", "access", "state", "validation", "evidence", "reason", "hardware_tested"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"},
+    "description": {"type": "string"},
+    "scope": {"type": "string"},
+    "discovery": {"type": "string"},
+    "requires": {"type": "string"},
+    "privilege": {"enum": ["unprivileged", "shell", "root"]},
+    "access": {"enum": ["read", "write"]},
+    "state": {"enum": ["AVAILABLE_READ_ONLY", "AVAILABLE_WRITABLE", "UNSUPPORTED", "PERMISSION_DENIED", "DETECTED_UNVERIFIED", "VALIDATION_REQUIRED", "TEMPORARILY_UNAVAILABLE", "ERROR"]},
+    "validation": {"enum": ["fixtures_only", "public_source", "hardware_tested", "none"]},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "reason": {"type": ["string", "null"]},
+    "hardware_tested": {"type": "boolean"}
+  }
+}

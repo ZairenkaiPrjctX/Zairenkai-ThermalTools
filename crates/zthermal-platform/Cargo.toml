@@ -1,0 +1,12 @@
+[package]
+name = "zthermal-platform"
+description = "Device discovery: sysfs thermal, Android properties and dumpsys, platform adapters, backups"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+zthermal-core = { path = "../zthermal-core" }
+serde.workspace = true
+serde_json.workspace = true

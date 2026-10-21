@@ -1,0 +1,17 @@
+[package]
+name = "zthermal"
+description = "Zairenkai ThermalTools command-line interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "zthermal"
+path = "src/main.rs"
+
+[dependencies]
+zthermal-core = { path = "../zthermal-core" }
+zthermal-platform = { path = "../zthermal-platform" }
+serde.workspace = true
+serde_json.workspace = true

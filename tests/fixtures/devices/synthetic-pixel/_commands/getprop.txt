@@ -1,0 +1,7 @@
+[ro.product.manufacturer]: [Synthetic]
+[ro.product.brand]: [synthetic]
+[ro.product.device]: [synthpixel]
+[ro.soc.manufacturer]: [Google]
+[ro.soc.model]: [zuma]
+[ro.build.version.sdk]: [34]
+[vendor.thermal.config]: [thermal_info_config.json]
