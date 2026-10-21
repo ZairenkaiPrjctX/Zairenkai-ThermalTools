@@ -59,6 +59,8 @@ pub struct Section {
     pub entries: Vec<Entry>,
     /// A `#algo_type ...` comment line appears in the section.
     pub commented_algo: bool,
+    /// The values of those comment lines (`#algo_type ss` gives `"ss"`), never used as active.
+    pub commented_algo_values: Vec<String>,
 }
 
 impl Section {
@@ -252,11 +254,17 @@ impl QcomConfig {
                     line: l.number,
                     entries: vec![],
                     commented_algo: false,
+                    commented_algo_values: vec![],
                 }),
                 LineKind::Comment => {
                     if let Some(s) = out.last_mut() {
                         let body = l.raw.trim().trim_start_matches('#').trim_start();
-                        s.commented_algo |= body.split_whitespace().next() == Some("algo_type");
+                        let mut words = body.split_whitespace();
+                        if words.next() == Some("algo_type") {
+                            s.commented_algo = true;
+                            s.commented_algo_values
+                                .push(words.collect::<Vec<_>>().join(" "));
+                        }
                     }
                 }
                 LineKind::Entry { key, values } => {
@@ -393,14 +401,51 @@ impl QcomConfig {
                     ));
                 }
             }
+            if let Some(e) = s.get("algo_type") {
+                if e.values.is_empty() {
+                    f.push(Finding::new(
+                        Severity::Error,
+                        "algo_type_empty",
+                        Some(format!("[{}] line {}", s.name, e.line)),
+                        "algo_type has no value; the section cannot be validated",
+                    ));
+                } else if e.values.len() > 1 {
+                    f.push(Finding::new(
+                        Severity::Warning,
+                        "algo_type_extra_values",
+                        Some(format!("[{}] line {}", s.name, e.line)),
+                        format!(
+                            "algo_type has several values {:?}; only the first is checked",
+                            e.values
+                        ),
+                    ));
+                }
+            }
             match s.algo_type() {
-                None if s.commented_algo => f.push(Finding::new(
-                    Severity::Info,
-                    "algo_type_commented_out",
-                    loc,
-                    "algo_type is commented out; whether the engine then ignores the section is unverified",
-                )),
-                None => f.push(Finding::new(Severity::Info, "no_algo_type", loc, "section has no algo_type")),
+                None if s.get("algo_type").is_some() => {}
+                None if s.commented_algo => {
+                    validate_untyped(&s, &mut f);
+                    f.push(Finding::new(
+                        Severity::Info,
+                        "algo_type_commented_out",
+                        loc,
+                        format!(
+                            "algo_type is commented out ({:?}) and is not treated as active; \
+                             algorithm-specific checks were skipped, only key types were checked. \
+                             Whether the engine ignores such a section is unverified",
+                            s.commented_algo_values
+                        ),
+                    ))
+                }
+                None => {
+                    validate_untyped(&s, &mut f);
+                    f.push(Finding::new(
+                        Severity::Info,
+                        "no_algo_type",
+                        loc,
+                        "section has no active algo_type; algorithm-specific checks were skipped, only key types were checked",
+                    ))
+                }
                 Some("monitor") => validate_monitor(&s, &mut f),
                 Some("ss") => validate_ss(&s, &mut f),
                 Some("virtual") => validate_virtual(&s, &mut f),
@@ -442,6 +487,13 @@ fn ints(s: &Section, key: &str, f: &mut Vec<Finding>) -> Option<Vec<i64>> {
         return None;
     }
     Some(parsed.into_iter().flatten().collect())
+}
+
+/// Checks that hold for every observed algorithm: trigger and clear values are integers.
+fn validate_untyped(s: &Section, f: &mut Vec<Finding>) {
+    for key in ["thresholds", "thresholds_clr", "set_point", "set_point_clr"] {
+        let _ = ints(s, key, f);
+    }
 }
 
 fn validate_monitor(s: &Section, f: &mut Vec<Finding>) {
@@ -678,5 +730,85 @@ disable";
         assert!(
             codes("[A]\nalgo_type monitor\nthresholds 4x\n").contains(&"not_integer".to_string())
         );
+    }
+
+    fn findings(t: &str) -> Vec<Finding> {
+        QcomConfig::parse(t).validate()
+    }
+
+    #[test]
+    fn commented_directives_are_never_active() {
+        // A commented algo_type with a monitor-looking body: no monitor checks run, the
+        // comment is named in the diagnostic, and the file still round-trips exactly.
+        let t = "[S]\n#algo_type monitor\nsensor s\nthresholds 50000 40000\nactions cpu0\naction_info 1 2\n";
+        let c = QcomConfig::parse(t);
+        assert_eq!(c.serialize(), t);
+        let sec = &c.sections()[0];
+        assert_eq!(sec.algo_type(), None);
+        assert_eq!(sec.commented_algo_values, ["monitor"]);
+        let f = c.validate();
+        let codes: Vec<&str> = f.iter().map(|x| x.code.as_str()).collect();
+        assert!(codes.contains(&"algo_type_commented_out"), "{codes:?}");
+        assert!(
+            !codes.contains(&"threshold_order") && !codes.contains(&"column_count"),
+            "{codes:?}"
+        );
+        assert!(f.iter().any(|x| x.message.contains("[\"monitor\"]")));
+    }
+
+    #[test]
+    fn whitespace_variants_of_comments_and_directives() {
+        for t in [
+            "[S]\n#algo_type ss\n",
+            "[S]\n  #   algo_type\tss\n",
+            "[S]\n#\talgo_type   ss  \n",
+        ] {
+            let c = QcomConfig::parse(t);
+            assert_eq!(c.serialize(), t);
+            assert_eq!(c.sections()[0].commented_algo_values, ["ss"], "{t:?}");
+            assert_eq!(c.sections()[0].algo_type(), None);
+        }
+        // Not a commented algo_type: different key.
+        assert!(!QcomConfig::parse("[S]\n#algo_types ss\n").sections()[0].commented_algo);
+        // Active directives with tabs and runs of spaces are active.
+        for t in ["[S]\nalgo_type\t\tss\n", "[S]\n   algo_type    ss\n"] {
+            assert_eq!(QcomConfig::parse(t).sections()[0].algo_type(), Some("ss"));
+        }
+    }
+
+    #[test]
+    fn missing_empty_and_extra_algo_type() {
+        let codes = |t: &str| findings(t).into_iter().map(|f| f.code).collect::<Vec<_>>();
+        assert!(codes("[S]\nsensor s\n").contains(&"no_algo_type".to_string()));
+        let c = codes("[S]\nalgo_type\nsensor s\n");
+        assert!(
+            c.contains(&"algo_type_empty".to_string()) && !c.contains(&"no_algo_type".to_string()),
+            "{c:?}"
+        );
+        assert!(codes(
+            "[S]\nalgo_type ss monitor\nsensor s\ndevice cpu0\nset_point 1\nset_point_clr 0\n"
+        )
+        .contains(&"algo_type_extra_values".to_string()));
+        // Untyped sections still get key-type checks.
+        assert!(codes("[S]\n#algo_type ss\nset_point 4x\n").contains(&"not_integer".to_string()));
+        assert!(codes("[S]\nset_point abc\n").contains(&"not_integer".to_string()));
+    }
+
+    #[test]
+    fn malformed_sections_are_kept_and_reported() {
+        for t in [
+            "[ ]\nalgo_type ss\n",
+            "[A]x\nalgo_type ss\n",
+            "[[A]]\nalgo_type ss\n",
+            "[A\nalgo_type ss\n",
+        ] {
+            let c = QcomConfig::parse(t);
+            assert_eq!(c.serialize(), t, "{t:?}");
+            assert!(
+                c.validate().iter().any(|f| f.code == "unparsed_line"),
+                "{t:?}"
+            );
+            assert!(c.sections().is_empty(), "{t:?}");
+        }
     }
 }

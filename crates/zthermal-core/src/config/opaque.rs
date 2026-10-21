@@ -72,6 +72,9 @@ pub fn assess(data: &[u8]) -> Option<OpaqueInfo> {
              so it is reported and never decoded"
                 .into()
         }
+        None if !utf8 && ratio < 0.01 => {
+            "not valid UTF-8 (possibly a legacy 8-bit text encoding); not interpreted".into()
+        }
         None => "binary data in an unrecognized format".into(),
     };
     Some(OpaqueInfo {

@@ -19,6 +19,7 @@ use zthermal_core::config::{inspect, ConfigFormat, Inspection};
 use zthermal_core::identity::DeviceIdentity;
 use zthermal_core::reading::DataStatus;
 
+use crate::device::SourceStatus;
 use crate::sysfs::SysfsInventory;
 use crate::sysroot::SysRoot;
 
@@ -30,6 +31,15 @@ pub struct Context<'a> {
     pub props: &'a BTreeMap<String, String>,
     pub identity: &'a DeviceIdentity,
     pub inventory: &'a SysfsInventory,
+    /// Results of the framework probes, when they ran in this invocation.
+    pub framework: Option<&'a FrameworkProbe>,
+}
+
+/// Outcome of `dumpsys thermalservice` and `dumpsys battery` in one invocation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FrameworkProbe {
+    pub thermalservice: SourceStatus,
+    pub battery: SourceStatus,
 }
 
 impl Context<'_> {
@@ -40,13 +50,28 @@ impl Context<'_> {
             .filter(|s| !s.is_empty())
     }
 
-    /// `init.svc.*` properties whose service name contains `needle`.
-    pub fn services(&self, needle: &str) -> BTreeMap<String, String> {
+    /// `init.svc.<name>` states for the given exact service names (names taken from a
+    /// published init `.rc` file). The state is what init reports; it does not show that the
+    /// service is authoritative for thermal management, and nothing here can change it.
+    pub fn services_named(&self, names: &[&str]) -> BTreeMap<String, String> {
+        names
+            .iter()
+            .filter_map(|n| {
+                self.props
+                    .get(&format!("init.svc.{n}"))
+                    .map(|v| (n.to_string(), v.clone()))
+            })
+            .collect()
+    }
+
+    /// Other `init.svc.*` entries whose name contains `needle`: kept for diagnosis only,
+    /// never treated as a confirmed thermal service.
+    pub fn service_candidates(&self, needle: &str, confirmed: &[&str]) -> BTreeMap<String, String> {
         self.props
             .iter()
             .filter_map(|(k, v)| {
                 k.strip_prefix("init.svc.")
-                    .filter(|s| s.contains(needle))
+                    .filter(|s| s.contains(needle) && !confirmed.contains(s))
                     .map(|s| (s.to_string(), v.clone()))
             })
             .collect()
@@ -81,19 +106,31 @@ pub struct ConfigFile {
 }
 
 pub fn read_config(root: &SysRoot, path: &str) -> ConfigFile {
+    read_config_data(root, path).0
+}
+
+/// Reads and inspects one file, and also returns the bytes so a caller that needs them
+/// (Pixel `Include` lists) does not read the file a second time.
+pub fn read_config_data(root: &SysRoot, path: &str) -> (ConfigFile, Option<Vec<u8>>) {
     match root.read_bounded(path, MAX_CONFIG_BYTES) {
-        Ok(data) => ConfigFile {
-            path: path.into(),
-            status: DataStatus::Valid,
-            detail: None,
-            inspection: Some(inspect(path, &data)),
-        },
-        Err(e) => ConfigFile {
-            path: path.into(),
-            status: e.status,
-            detail: Some(e.detail),
-            inspection: None,
-        },
+        Ok(data) => (
+            ConfigFile {
+                path: path.into(),
+                status: DataStatus::Valid,
+                detail: None,
+                inspection: Some(inspect(path, &data)),
+            },
+            Some(data),
+        ),
+        Err(e) => (
+            ConfigFile {
+                path: path.into(),
+                status: e.status,
+                detail: Some(e.detail),
+                inspection: None,
+            },
+            None,
+        ),
     }
 }
 
@@ -103,7 +140,10 @@ pub struct AdapterReport {
     pub applies: bool,
     /// Why the adapter applies (or not).
     pub evidence: Vec<String>,
+    /// Services whose names come from published init files, with their `init.svc` state.
     pub services: BTreeMap<String, String>,
+    /// Other services whose names merely match; unconfirmed, for diagnosis only.
+    pub candidate_services: BTreeMap<String, String>,
     pub config_files: Vec<ConfigFile>,
     pub capabilities: Vec<Capability>,
     pub notes: Vec<String>,
@@ -116,6 +156,7 @@ impl AdapterReport {
             applies: false,
             evidence: vec![],
             services: BTreeMap::new(),
+            candidate_services: BTreeMap::new(),
             config_files: vec![],
             capabilities: vec![],
             notes: vec![],
@@ -201,6 +242,7 @@ pub mod testutil {
         pub props: BTreeMap<String, String>,
         pub identity: DeviceIdentity,
         pub inventory: SysfsInventory,
+        pub framework: Option<FrameworkProbe>,
     }
 
     impl Fixture {
@@ -217,6 +259,7 @@ pub mod testutil {
                 props,
                 identity,
                 inventory,
+                framework: None,
             }
         }
 
@@ -226,6 +269,7 @@ pub mod testutil {
                 props: &self.props,
                 identity: &self.identity,
                 inventory: &self.inventory,
+                framework: self.framework.as_ref(),
             }
         }
     }

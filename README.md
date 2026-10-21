@@ -20,7 +20,7 @@ allowlist is empty, so `apply` only plans: nothing is written in this release.
 |---|---|---|
 | `doctor` | what this environment allows (sources, SELinux, profiles, journal) | none |
 | `device-info` | SoC and OEM identity with the evidence and conflicts behind it | none |
-| `capabilities` | each capability's state, required privilege and validation level | none |
+| `capabilities` | each capability's state, required privilege and validation level; `--framework` runs and records the dumpsys probes | none / shell |
 | `sensors` | thermal zones, trip points, hwmon; `--framework` adds HAL temperatures | none / shell |
 | `thermal-status` | hottest valid zone, framework status, battery temperature | shell for framework |
 | `cooling-devices` | cooling device states | none |
@@ -52,7 +52,7 @@ ANDROID_NDK_HOME=<ndk> scripts/build-android.sh   # dist/zthermal-<version>-<abi
 python3 scripts/check-schemas.py target/debug/zthermal   # needs jsonschema
 ```
 
-On a device (not yet tested): `adb push dist/zthermal-0.1.0-arm64-v8a /data/local/tmp/zthermal`,
+On a device (not yet tested): `adb push dist/zthermal-0.2.0-arm64-v8a /data/local/tmp/zthermal`,
 then `adb shell /data/local/tmp/zthermal report --framework`.
 
 ## Documentation
@@ -62,10 +62,15 @@ then `adb shell /data/local/tmp/zthermal report --framework`.
 - [Configuration formats](docs/CONFIG_FORMATS.md) and what was verified against real files
 - [Compatibility matrix](docs/COMPATIBILITY_MATRIX.md)
 - [Integration contract](docs/INTEGRATION.md) for Core, the app and the SDK
-- [Testing](docs/TESTING.md)
+- [Testing](docs/TESTING.md), including the hardware-validation protocol
+- [Licensing and provenance](docs/LICENSING.md)
+
+Zairenkai-Core reads `zthermal snapshot` through a read-only adapter
+([docs/INTEGRATION.md](docs/INTEGRATION.md)).
 
 ## Licence
 
-No licence has been chosen for this repository yet. Third-party material is not
+No licence has been chosen for this repository yet (recommendation: Apache-2.0, see
+[docs/LICENSING.md](docs/LICENSING.md)). Third-party material is not
 redistributed: vendor configuration files used for verification are referenced by URL and
 commit, not committed (see [docs/CONFIG_FORMATS.md](docs/CONFIG_FORMATS.md)).

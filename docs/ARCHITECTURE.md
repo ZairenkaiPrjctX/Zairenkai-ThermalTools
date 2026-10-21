@@ -19,8 +19,8 @@ zthermal-core             no I/O: readings, identity, capabilities, config parse
 |---|---|
 | `reading` | `DataStatus` for every value; `Temperature` normalization from millidegrees (sysfs, hwmon), tenths (battery) and degrees (HAL); plausibility range −40…150 °C; whole-degree suspicion; freshness; name-based sensor classification (never by index) |
 | `identity` | `DeviceIdentity` from properties: SoC vendor and OEM family as conclusions with confidence, evidence and conflicts. Never reads serial numbers or IMEIs |
-| `capability` | `Capability` with state, access, required privilege, validation level, evidence, reason; `hardware_tested` |
-| `config` | format detection by content, SHA-256, `inspect`; `qcom` (lossless thermal-engine parser and validator), `pixel` (strict JSON, HAL-equivalent validation), `opaque` (binary, compressed, encrypted, enciphered), `diff` (semantic diff with safety flags) |
+| `capability` | `Capability` with state, access, required privilege, validation level, evidence, reason, `hardware_tested`, and the runtime `probe` behind the state |
+| `config` | format detection by content (with `suspected_encoded` for Base64-like or ambiguous text), SHA-256, `inspect`; `qcom` (lossless thermal-engine parser and validator), `pixel` (strict JSON, HAL-equivalent validation), `opaque` (binary, compressed, encrypted, enciphered), `diff` (semantic diff with categories: weakens, strengthens, changes behaviour) |
 | `profile` | device profiles with evidence records; `profile_problems`, `database_problems` |
 | `policy` | modes, the validated control allowlist (`VALIDATED_CONTROLS`, empty), the hard deny-list (`denied_target`), descriptor rules, the adaptive state machine, `plan` |
 
@@ -28,12 +28,12 @@ zthermal-core             no I/O: readings, identity, capabilities, config parse
 
 | Module | Responsibility |
 |---|---|
-| `sysroot` | `SysRoot`: all file access under a root (`/` or a fixture), bounded reads, `write_existing` that never creates files |
+| `sysroot` | `SysRoot`: all file access under a root (`/` or a fixture), bounded reads, `write_existing` that never creates files; tests can record reads (`SysRoot::recording`) |
 | `exec` | `Runner` trait; `ProcessRunner` (argv, no shell, timeout, 2 MiB cap), `FakeRunner`, `FixtureRunner` (`--root`) |
 | `sysfs` | thermal zones, trip points, cdev bindings, cooling devices with statistics, hwmon |
 | `android` | `dumpsys thermalservice` and `dumpsys battery` parsers; BCL entries are kept as mV/mA/%, never as temperatures |
 | `device` | properties, kernel release, identity, framework dumps, each with a `SourceStatus` |
-| `adapters` | `generic`, `qcom`, `mediatek`, `pixel`, `xiaomi`: evidence for the vendor, config discovery and inspection, read-only capabilities |
+| `adapters` | `generic`, `qcom`, `mediatek`, `pixel`, `xiaomi`: evidence for the vendor, confirmed services (names from published init files) and unconfirmed candidates, config discovery and single-read inspection, read-only capabilities; framework capabilities follow the probe when one ran |
 | `backup` | copies discovered configs into a new directory with a SHA-256 manifest; `verify` |
 | `snapshot` | one document with identity, sources, summary, sysfs, framework, adapters, capabilities; `redact` |
 | `txn` | preflight → read originals → journal → write → read back → rollback in reverse; journal survives crashes |

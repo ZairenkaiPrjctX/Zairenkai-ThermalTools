@@ -10,10 +10,14 @@ use zthermal_core::config::pixel::PixelConfig;
 use zthermal_core::config::ConfigFormat;
 use zthermal_core::identity::SocVendor;
 
-use super::{config_capability, read_config, AdapterReport, ConfigFile, Context};
+use super::{config_capability, read_config, read_config_data, AdapterReport, ConfigFile, Context};
 
 pub const CONFIG_DIR: &str = "/vendor/etc";
 pub const DEFAULT_CONFIG: &str = "thermal_info_config.json";
+
+/// The Pixel Thermal HAL service (`thermal/android.hardware.thermal-service.pixel.rc` in
+/// hardware/google/pixel at 8612656e).
+pub const SERVICES: &[&str] = &["vendor.thermal-hal"];
 
 pub fn is_info_config(name: &str) -> bool {
     name.starts_with("thermal_info_config") && name.ends_with(".json")
@@ -44,7 +48,8 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
     if let Some(p) = prop {
         r.evidence.push(format!("vendor.thermal.config = {p}"));
     }
-    r.services = ctx.services("thermal");
+    r.services = ctx.services_named(SERVICES);
+    r.candidate_services = ctx.service_candidates("thermal", SERVICES);
     r.applies = !r.evidence.is_empty();
     if !r.applies {
         return r;
@@ -66,13 +71,8 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
     let mut seen: BTreeSet<String> = order.iter().cloned().collect();
     let mut i = 0;
     while i < order.len() && order.len() < 32 {
-        let f = read_config(ctx.root, &order[i]);
-        if let Some(text) = ctx
-            .root
-            .read_bounded(&order[i], super::MAX_CONFIG_BYTES)
-            .ok()
-            .and_then(|b| String::from_utf8(b).ok())
-        {
+        let (f, data) = read_config_data(ctx.root, &order[i]);
+        if let Some(text) = data.and_then(|b| String::from_utf8(b).ok()) {
             if let Ok(cfg) = PixelConfig::parse(&text) {
                 for inc in cfg.includes() {
                     match safe_name(&inc) {
@@ -122,6 +122,7 @@ mod tests {
     use super::*;
     use crate::adapters::testutil::Fixture;
     use crate::sysroot::testutil::TempDir;
+    use crate::sysroot::SysRoot;
     use zthermal_core::capability::CapabilityState;
     use zthermal_core::reading::DataStatus;
 
@@ -164,5 +165,36 @@ mod tests {
         assert!(r.applies);
         assert_eq!(r.config_files[0].status, DataStatus::Unsupported);
         assert_eq!(r.capabilities[0].state, CapabilityState::Unsupported);
+    }
+
+    #[test]
+    fn each_file_is_read_once_per_inspection() {
+        let t = TempDir::new("pixel-reads");
+        t.file(
+            "vendor/etc/thermal_info_config.json",
+            r#"{"Include": ["thermal_info_config_a.json", "thermal_info_config_a.json"], "Sensors": []}"#,
+        );
+        t.file(
+            "vendor/etc/thermal_info_config_a.json",
+            r#"{"Include": ["thermal_info_config.json"], "Sensors": []}"#,
+        );
+        t.file(
+            "vendor/etc/thermal_info_config_b.json",
+            r#"{"Sensors": []}"#,
+        );
+        let mut fx = Fixture::new(t.path(), &[("ro.soc.model", "zuma")]);
+        fx.root = SysRoot::recording(t.path());
+        let r = probe(&fx.ctx());
+        assert_eq!(r.config_files.len(), 3);
+        for f in [
+            "thermal_info_config.json",
+            "thermal_info_config_a.json",
+            "thermal_info_config_b.json",
+        ] {
+            assert_eq!(fx.root.reads_of(&format!("/vendor/etc/{f}")), 1, "{f}");
+        }
+        // A second inspection reads the files again: nothing is cached across requests.
+        probe(&fx.ctx());
+        assert_eq!(fx.root.reads_of("/vendor/etc/thermal_info_config.json"), 2);
     }
 }

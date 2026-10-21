@@ -201,7 +201,7 @@ fn dispatch(a: &Args) -> Result<u8, String> {
             Ok(EXIT_OK)
         }
         "capabilities" => {
-            let s = snapshot(a, &e, false);
+            let s = snapshot(a, &e, a.framework);
             emit(
                 a,
                 &json!({"schema_version": 1, "capabilities": s.capabilities, "adapters": s.adapters.iter().map(|r| json!({"adapter": r.adapter, "applies": r.applies, "evidence": r.evidence, "notes": r.notes})).collect::<Vec<_>>()}),
@@ -381,22 +381,32 @@ fn doctor(a: &Args, e: &Env) -> Result<u8, String> {
             format!("fixture {}", e.root.path("/").display())
         },
     ));
-    checks.push(match euid() {
-        Some(0) => (
+    // A fixture is synthetic device data: the host's identity says nothing about it, so it is
+    // neither read nor reported.
+    checks.push(if !e.root.is_real() {
+        (
             "privilege",
             "info",
-            "running as root; reads only unless a validated control applies".into(),
-        ),
-        Some(u) => (
-            "privilege",
-            "info",
-            format!("running as uid {u}; root-only sources are reported as permission denied"),
-        ),
-        None => (
-            "privilege",
-            "warn",
-            "uid unknown (/proc/self/status unreadable)".into(),
-        ),
+            "not applicable in fixture mode (no live process identity is read)".into(),
+        )
+    } else {
+        match euid() {
+            Some(0) => (
+                "privilege",
+                "info",
+                "running as root; reads only unless a validated control applies".into(),
+            ),
+            Some(u) => (
+                "privilege",
+                "info",
+                format!("running as uid {u}; root-only sources are reported as permission denied"),
+            ),
+            None => (
+                "privilege",
+                "warn",
+                "uid unknown (/proc/self/status unreadable)".into(),
+            ),
+        }
     });
     for src in &s.sources {
         let level = match src.status {

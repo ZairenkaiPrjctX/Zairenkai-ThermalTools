@@ -18,7 +18,8 @@ pub fn is_mi_config(name: &str) -> bool {
 pub fn probe(ctx: &Context<'_>) -> AdapterReport {
     let mut r = AdapterReport::new("xiaomi");
     let files = ctx.files_in(CONFIG_DIR, is_mi_config);
-    r.services = ctx.services("mi_thermald");
+    // No published init file names the mi_thermald service, so matches stay candidates.
+    r.candidate_services = ctx.service_candidates("mi_thermald", &[]);
     if ctx.identity.oem_family.value == OemFamily::Xiaomi {
         r.evidence.extend(
             ctx.identity
@@ -28,8 +29,11 @@ pub fn probe(ctx: &Context<'_>) -> AdapterReport {
                 .map(|e| format!("{} = {}", e.source, e.value)),
         );
     }
-    if !r.services.is_empty() {
-        r.evidence.push("init.svc.mi_thermald is set".into());
+    if !r.candidate_services.is_empty() {
+        r.evidence.push(format!(
+            "init.svc entries matching mi_thermald: {:?} (unconfirmed name)",
+            r.candidate_services.keys().collect::<Vec<_>>()
+        ));
     }
     if ctx.root.exists("/vendor/bin/mi_thermald") {
         r.evidence.push("/vendor/bin/mi_thermald exists".into());
