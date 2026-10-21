@@ -25,7 +25,7 @@
 | Profiles (1: `google-shusky`, public source only) | `profiles/` | Verified. Evidence: `profile-validate`, schema check |
 | JSON schemas (4) | `schemas/` | Verified. Evidence: `scripts/check-schemas.py`, 2026-10-21 |
 | Android build | `scripts/build-android.sh`, `.cargo/config.toml` | Verified. Evidence: NDK r27d, three ABIs, 16 KB LOAD alignment checked, 0.2.0, 2026-10-21 |
-| CI | `.github/workflows/ci.yml` | Verified for 0.1.0. Evidence: GitHub Actions runs 39524831220 (PR #1) and 39525107809 (dev), green, 2026-10-21. 0.2.0: see the latest run on the topic branch |
+| CI | `.github/workflows/ci.yml` | Verified on GitHub. Evidence: Actions runs 39524831220 (PR #1) and 39525107809 (dev) for 0.1.0; 39528670954 (workflow_dispatch, c98d319, 0.2.0); all 4 jobs green, 2026-10-21 |
 | Docs | `README.md`, `docs/` (incl. `LICENSING.md`, `validation/TEMPLATE.md`) | Verified. Evidence: files present |
 
 ## Key facts and limitations
