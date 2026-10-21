@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! MediaTek: legacy `mtkts*` thermal zones and the `/vendor/etc/.tp/` policy files.
 //!
 //! Published `.tp` files are printable but enciphered. They are detected and hashed, never

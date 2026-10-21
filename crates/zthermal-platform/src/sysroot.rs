@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! File-system root abstraction.
 //!
 //! Every platform read and write goes through a [`SysRoot`]. Production uses `/`; tests

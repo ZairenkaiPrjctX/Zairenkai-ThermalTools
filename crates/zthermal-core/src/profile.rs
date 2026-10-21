@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Device and SoC profiles (`profiles/*.json`) and their validation.
 //!
 //! A profile records what is known about a device family and how it is known. It never

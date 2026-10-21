@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Vendor thermal configuration files: format detection, parsing, validation, diff and
 //! hashing.
 //!

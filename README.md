@@ -70,7 +70,7 @@ Zairenkai-Core reads `zthermal snapshot` through a read-only adapter
 
 ## Licence
 
-No licence has been chosen for this repository yet (recommendation: Apache-2.0, see
-[docs/LICENSING.md](docs/LICENSING.md)). Third-party material is not
-redistributed: vendor configuration files used for verification are referenced by URL and
-commit, not committed (see [docs/CONFIG_FORMATS.md](docs/CONFIG_FORMATS.md)).
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Vendor configuration files
+are not part of the repository: those used for verification are referenced by URL and
+commit ([docs/CONFIG_FORMATS.md](docs/CONFIG_FORMATS.md),
+[docs/LICENSING.md](docs/LICENSING.md)).

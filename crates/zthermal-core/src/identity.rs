@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Normalized device identity from several independent evidence sources.
 //!
 //! Any single property may be missing, modified or misleading (custom ROMs rewrite

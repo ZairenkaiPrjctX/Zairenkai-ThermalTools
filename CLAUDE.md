@@ -39,9 +39,9 @@ Non-negotiables in this repo (`docs/SAFETY.md`):
 | Purpose | Command | Status |
 |---|---|---|
 | Build | `cargo build --workspace` | Verified. Evidence: 2026-10-21 |
-| Test | `cargo test --workspace` | Verified. Evidence: 108 passed (55 core + 39 platform + 3 CLI unit + 11 CLI integration), 2026-10-21 |
+| Test | `cargo test --workspace` | Verified. Evidence: 109 passed (55 core + 40 platform + 3 CLI unit + 11 CLI integration), 2026-10-21 |
 | Lint / format | `cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check` | Verified. Evidence: clean, 2026-10-21 |
-| MSRV | `cargo +1.85.0 test --workspace` | Verified. Evidence: 108 passed, 2026-10-21 |
+| MSRV | `cargo +1.85.0 test --workspace` | Verified. Evidence: 109 passed, 2026-10-21 |
 | JSON schemas | `python3 scripts/check-schemas.py target/debug/zthermal` (needs `jsonschema`) | Verified. Evidence: 4 snapshots, 7 inspections, 1 profile valid, 2026-10-21 |
 | Shell lint | `shellcheck scripts/*.sh` | Verified. Evidence: clean (0.10.0), 2026-10-21 |
 | Android binaries | `ANDROID_NDK_HOME=<ndk> scripts/build-android.sh` | Verified. Evidence: NDK r27d, arm64-v8a/x86_64/armeabi-v7a, 16 KB LOAD alignment checked, 0.2.0, 2026-10-21 |

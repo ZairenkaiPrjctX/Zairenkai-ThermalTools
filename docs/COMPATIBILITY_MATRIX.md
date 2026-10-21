@@ -23,7 +23,7 @@ Each column is a separate claim. "Identified" never implies the columns to its r
 | Qualcomm | `ro.soc.manufacturer`, `ro.soc.model`, `ro.board.platform`, `thermal-engine*.conf`, `/vendor/bin/thermal-engine`, tsens zone names; service `vendor.thermal-engine` (AOSP marlin init) | yes | `thermal-engine.conf`: parse, validate, diff, backup | yes: 13 files, byte-exact round trip | no | no |
 | MediaTek | `ro.soc.*`, `mt*` platforms, legacy `mtkts*` zones, `/vendor/etc/.tp`; services `thermal`, `thermal_manager`, `thermalloadalgod` (one published blob set) | yes | no: `.tp` files are enciphered, detected and hashed only | detection only (one blob set) | no | no |
 | Google Tensor (Pixel) | `ro.soc.*`, gs101/gs201/zuma/…, `thermal_info_config*.json`, `vendor.thermal.config`; service `vendor.thermal-hal` | yes | `thermal_info_config*.json`: parse, validate, diff, backup, includes | yes: 4 shusky files, rules from the HAL source | no | no |
-| Xiaomi (OEM) | manufacturer/brand props, `/vendor/bin/mi_thermald`; `mi_thermald` service names are candidates only | yes | no: `thermal-*.conf` are binary (hashed only); `thermald-devices.conf` recognized, not interpreted | detection only (one blob set) | no | no |
+| Xiaomi (OEM) | manufacturer/brand props, `/vendor/bin/mi_thermald`; service `mi_thermald` (published Xiaomi sm8250 vendor init) | yes | no: `thermal-*.conf` are binary (hashed only); `thermald-devices.conf` recognized, not interpreted | detection only (one blob set) | no | no |
 | Samsung Exynos, Unisoc | identity only (`exynos`, `s5e`, `universal`, `ums`, `sc9`, `ud7`) | yes | none | — | no | no |
 | Other OEMs (Samsung, OnePlus, Motorola, …) | OEM family from properties | yes | none | — | no | no |
 

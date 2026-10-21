@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 ZairenkaiPrjctX contributors
 # Cross-compile zthermal (the CLI) for Android and write checksummed binaries to dist/.
 #
 # Requires: Rust with the Android targets below, and ANDROID_NDK_HOME pointing at an Android
 # NDK (CI uses r27d, checksum-verified). Usage: scripts/build-android.sh [TARGET...]
-# Output: dist/zthermal-<version>-<abi> and dist/SHA256SUMS. Nothing is installed on a device.
+# Output: dist/zthermal-<version>-<abi>, dist/SHA256SUMS, and LICENSE and NOTICE. Nothing is installed on a device.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -35,4 +37,5 @@ for target in "$@"; do
     done
   fi
 done
+cp LICENSE NOTICE dist/
 (cd dist && sha256sum zthermal-"$VERSION"-* | tee SHA256SUMS)

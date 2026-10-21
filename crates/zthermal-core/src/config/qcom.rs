@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Qualcomm `thermal-engine.conf`.
 //!
 //! No public specification exists. The syntax below is what 13 published files show (AOSP

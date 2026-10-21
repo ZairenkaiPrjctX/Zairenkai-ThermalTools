@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Zairenkai ThermalTools core: device identity, readings, capabilities, configuration
 //! parsers, profiles and policy rules. No I/O: everything here is testable without a device.
 

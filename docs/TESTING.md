@@ -78,36 +78,141 @@ The aim is one device per row; a row is not "covered" until a record exists in
 - Non-root first. Root, when used, is recorded and used only for the same read-only commands.
 - Stop at the first sign of abnormal heat or behaviour, and record it.
 
-### Setup
+### Setup (host)
 
 ```sh
-scripts/build-android.sh                          # host
-adb push dist/zthermal-<version>-arm64-v8a /data/local/tmp/zthermal
+scripts/build-android.sh                                   # builds dist/ with LICENSE, NOTICE
+adb devices -l                                             # exactly one device, authorized
+adb push dist/zthermal-0.2.0-arm64-v8a /data/local/tmp/zthermal
 adb shell chmod 755 /data/local/tmp/zthermal
-adb shell getprop ro.product.device ro.soc.manufacturer ro.soc.model ro.board.platform \
-  ro.build.version.release ro.build.version.sdk
-adb shell uname -r
 ```
 
-Record the build fingerprint only in redacted form (zthermal prints a short hash) unless
-the device owner agrees to publish it.
+`/data/local/tmp` is fine for a manual test run by the shell user. It is never acceptable
+for Core: Core refuses a binary there because the directory is group- or world-writable.
 
-### Steps, expected observations
+In the commands below, `Z=/data/local/tmp/zthermal`. Every command is read-only. Run them
+as the shell user. Root is optional and must be recorded if used.
 
-| Step | Command (`adb shell /data/local/tmp/zthermal ...`) | Expected |
-|---|---|---|
-| 1 | `doctor` | exit 0; sources listed with their real status; `controls: 0 validated` |
-| 2 | `device-info` | SoC vendor and evidence match the `getprop` values above |
-| 3 | `sensors` | zones with plausible °C values (roughly 20–60 °C idle); invalid zones show a status, never a number |
-| 4 | compare with `cat /sys/class/thermal/thermal_zone*/temp` | identical values (millidegrees / 1000), apart from sampling delay |
-| 5 | `sensors --framework`, `thermal-status` | HAL temperatures, or `permission_denied` for the shell user, not a fake value; BCL entries in mV/mA/% |
-| 6 | `capabilities --framework` | framework capabilities show `probe` results matching step 5 |
-| 7 | `cooling-devices` | types and `cur_state/max_state` as in sysfs |
-| 8 | `inspect-config <file>` for each file in `report` | expected format; Qualcomm round trip byte-exact; MediaTek/Xiaomi `opaque`; safety facts checked by hand |
-| 9 | `apply --mode performance` | exit 4; a `snapshot` before and after shows no change |
-| 10 | `snapshot -o /data/local/tmp/s1.json`, then `report` | valid JSON (`scripts/check-schemas.py` on the host), fingerprint redacted |
-| 11 | repeat step 3 ten times, 5 s apart | stable output shape; readings change only with temperature |
-| 12 | run `sensors` while disconnecting USB, then reconnect | the command either completes or fails cleanly; nothing persists on the device |
+### 1. Identity evidence
+
+```sh
+adb shell getprop ro.product.manufacturer ro.product.brand ro.product.device ro.product.model
+adb shell getprop ro.soc.manufacturer ro.soc.model ro.board.platform ro.hardware
+adb shell getprop ro.build.version.release ro.build.version.sdk
+adb shell uname -r
+adb shell $Z device-info            # SoC/OEM conclusions must match the getprop values
+adb shell $Z doctor                 # exit 0; "0 validated writable controls"
+```
+
+### 2. Before-state of everything thermal protection depends on
+
+```sh
+adb shell 'cat /sys/class/thermal/thermal_zone*/trip_point_*_temp /sys/class/thermal/thermal_zone*/trip_point_*_hyst \
+  /sys/class/thermal/thermal_zone*/mode /sys/class/thermal/thermal_zone*/policy 2>/dev/null' | sha256sum > before-sysfs.sha
+adb shell 'sha256sum /vendor/etc/thermal* /vendor/etc/.tp/* /odm/etc/thermal* 2>/dev/null' > before-configs.txt
+adb shell 'getprop | grep -i thermal' > before-props.txt
+```
+
+### 3. Framework status, sensors and units
+
+```sh
+adb shell $Z thermal-status                       # hottest zone, framework severity, battery
+adb shell $Z sensors                              # every zone: a valid °C value or a named status
+adb shell 'for z in /sys/class/thermal/thermal_zone*; do echo "$z $(cat $z/type) $(cat $z/temp)"; done'
+adb shell $Z sensors --framework                  # HAL temperatures; BCL types in mV/mA/%
+adb shell dumpsys thermalservice | sed -n '/Current temperatures from HAL/,/^[A-Z]/p'
+adb shell dumpsys battery | grep temperature      # tenths of °C
+```
+
+Compare each zthermal zone value with the raw millidegree value divided by 1000. Compare
+HAL values with the `dumpsys` lines. Idle readings should be plausible (roughly 20–60 °C).
+A zone that cannot be read must show a status (`unavailable`, `permission_denied`,
+`inconsistent`), never a number.
+
+### 4. Cooling devices and capabilities
+
+```sh
+adb shell $Z cooling-devices
+adb shell 'for c in /sys/class/thermal/cooling_device*; do echo "$c $(cat $c/type) $(cat $c/cur_state)/$(cat $c/max_state)"; done'
+adb shell $Z capabilities --framework --json > caps.json   # framework entries carry "probe"
+```
+
+### 5. Configuration files
+
+```sh
+adb shell $Z report | sed -n '/== Configuration files/,$p'
+adb shell $Z inspect-config <each path listed above>
+adb shell $Z backup-config --dest /data/local/tmp/zt-backup   # copies only; verifies SHA-256
+adb pull /data/local/tmp/zt-backup
+```
+
+Expected:
+- Qualcomm files: byte-exact round trip.
+- Pixel files: model-equal round trip.
+- MediaTek `.tp` and Xiaomi `thermal-*.conf`: `opaque`.
+- Xiaomi `thermald-devices.conf`: `xiaomi_thermald_devices`.
+- Check the safety facts by hand against the file.
+
+### 6. Refused, unsupported and permission-limited paths
+
+```sh
+adb shell $Z apply --mode performance; echo "exit $?"           # must be 4
+adb shell $Z apply --mode gaming --dry-run                      # "writes: none"
+adb shell $Z rollback; echo "exit $?"                           # "no journal", exit 0
+adb shell $Z inspect-config /nonexistent; echo "exit $?"        # exit 1, clear message
+adb shell $Z backup-config --dest /data/local/tmp/zt-backup; echo "exit $?"   # exit 1: never overwrites
+adb shell $Z sensors --root /data/local/tmp/empty; echo "exit $?"            # exit 5 (mkdir it first)
+```
+
+The shell user normally has `android.permission.DUMP`, so `Permission Denial` from
+`dumpsys` is not reproducible from adb. It is covered by fixture tests
+(`synthetic-pixel`). Record any zones or files the shell user cannot read: those are the
+real permission limits.
+
+### 7. Snapshot and report
+
+```sh
+adb shell $Z snapshot --framework -o /data/local/tmp/s1.json && adb pull /data/local/tmp/s1.json
+adb shell $Z report --framework > report.txt
+python3 scripts/check-schemas.py target/debug/zthermal --snapshot s1.json   # host
+```
+
+The fingerprint must be `redacted:sha256:…` unless `--no-redact` was given.
+
+### 8. Repeated sampling and interruption
+
+```sh
+for i in 1 2 3 4 5 6 7 8 9 10; do adb shell $Z thermal-status; sleep 5; done
+adb shell $Z sensors    # unplug USB while it runs, then reconnect and rerun
+```
+
+### 9. After-state: nothing changed
+
+```sh
+adb shell 'cat /sys/class/thermal/thermal_zone*/trip_point_*_temp /sys/class/thermal/thermal_zone*/trip_point_*_hyst \
+  /sys/class/thermal/thermal_zone*/mode /sys/class/thermal/thermal_zone*/policy 2>/dev/null' | sha256sum > after-sysfs.sha
+adb shell 'sha256sum /vendor/etc/thermal* /vendor/etc/.tp/* /odm/etc/thermal* 2>/dev/null' > after-configs.txt
+adb shell 'getprop | grep -i thermal' > after-props.txt
+diff before-sysfs.sha after-sysfs.sha && diff before-configs.txt after-configs.txt && echo UNCHANGED
+diff before-props.txt after-props.txt     # init.svc states may change on their own; note any diff
+adb shell rm -r /data/local/tmp/zthermal /data/local/tmp/zt-backup /data/local/tmp/s1.json
+```
+
+Cooling-device `cur_state` and temperatures change on their own and are not compared.
+
+### Fixture-mode isolation (host)
+
+Proves `--root` reads nothing from the host's thermal stack and runs no Android tool:
+
+```sh
+cargo build --release -p zthermal
+for c in doctor "snapshot --framework" "report --framework" "capabilities --framework"; do
+  strace -f -qq -e trace=openat,open,execve,stat,statx,newfstatat,readlink -o trace.txt \
+    target/release/zthermal $c --root tests/fixtures/devices/synthetic-qcom > /dev/null
+  grep -c execve trace.txt          # 1: zthermal itself
+  grep -oE '"/[^"]*"' trace.txt | sort -u   # only the loader, libc/libm/libgcc, /proc/self/maps
+done
+```
 
 ### Record
 

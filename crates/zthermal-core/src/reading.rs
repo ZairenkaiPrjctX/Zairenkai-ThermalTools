@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Readings: data-quality status, temperature normalization and sensor classification.
 //!
 //! Every value carries its raw text, its source and a [`DataStatus`]. Nothing here invents a

@@ -1,34 +1,48 @@
 # Licensing and provenance
 
-## Current state
+## Licence
 
-- **No licence has been chosen** for this repository: there is no `LICENSE` file, and no
-  terms are granted. This is an owner decision and has not been made.
-- Organization convention: only one Zairenkai repository has a licence,
-  Zairenkai-Database-Source (Apache-2.0, `LICENSE` and `NOTICE`, copyright "ZairenkaiPrjctX
-  contributors"). Core, FAS, ART and App record "none chosen" as an open question. No
-  organization-wide policy exists in `ZairenkaiPrjctX/.github`.
-- Dependencies: `serde`, `serde_json`, `sha2` and their transitive crates (`Cargo.lock`).
-  Their licences, all permissive:
-  - most are MIT OR Apache-2.0;
-  - `foldhash`: Zlib;
-  - `memchr`: Unlicense OR MIT;
-  - `generic-array`, `zmij`: MIT;
-  - `unicode-ident`: (MIT OR Apache-2.0) AND Unicode-3.0, build time only.
+**Apache License 2.0** (`Apache-2.0`), chosen by the maintainer on 2026-10-21 for this
+repository and for Zairenkai-Core. It matches Zairenkai-Database-Source, the only other
+licensed Zairenkai repository.
 
-  Checked with `cargo metadata --locked` on 2026-10-21.
+| Item | Where |
+|---|---|
+| Licence text | `LICENSE`: the official text from https://www.apache.org/licenses/LICENSE-2.0.txt, byte-identical to Zairenkai-Database-Source's `LICENSE` (SHA-256 `cfc7749b…3d30`) |
+| Notice | `NOTICE`: copyright holder, scope, and third-party statements |
+| Cargo metadata | `license = "Apache-2.0"` in `[workspace.package]`; every crate sets `license.workspace = true` |
+| File headers | `SPDX-License-Identifier: Apache-2.0` and `Copyright 2026 ZairenkaiPrjctX contributors` in every `.rs`, `.sh` and `.py` file |
+| Distribution | `scripts/build-android.sh` copies `LICENSE` and `NOTICE` into `dist/` next to the binaries |
 
-## Recommendation (not applied)
+### Copyright holder and rights
 
-**Apache-2.0**, matching Zairenkai-Database-Source:
-- It is compatible with every source and dependency this project uses. AOSP is Apache-2.0,
-  and the dependency licences above are permissive and Apache-2.0-compatible.
-- Its patent grant suits system software.
-- It lets other Zairenkai components reuse the contract types.
+- The copyright line "ZairenkaiPrjctX contributors" follows the convention already used by
+  Zairenkai-Database-Source's `NOTICE`. The year 2026 is the year of the first commit.
+- Every commit in this repository is the maintainer's work. Agent-made commits carry the
+  maintainer's `Signed-off-by: FebriCahyaa`, and the one GitHub-authored merge is the
+  maintainer's own.
+- No third-party code is vendored. `scripts/build-android.sh` was adapted from Zairenkai-ART,
+  which has the same owner and no separate licence.
+- Nothing here asserts who owns the rights beyond that convention. If the maintainer wants a
+  named copyright holder, change `NOTICE` and the headers together.
 
-If chosen, add the Apache-2.0 `LICENSE` text, and a `NOTICE` naming the copyright holder as
-the owner decides (the AFID repository uses "ZairenkaiPrjctX contributors"). Copyright holders
-cannot be invented here.
+### Dependencies
+
+Dependencies: `serde`, `serde_json`, `sha2` and their transitive crates (`Cargo.lock`). Their
+licences are all permissive and Apache-2.0-compatible:
+- most are MIT OR Apache-2.0;
+- `foldhash`: Zlib;
+- `memchr`: Unlicense OR MIT;
+- `generic-array`, `zmij`: MIT;
+- `unicode-ident`: (MIT OR Apache-2.0) AND Unicode-3.0, build time only.
+
+Re-checked with `cargo metadata --locked --filter-platform aarch64-linux-android` on
+2026-10-21 (unchanged).
+
+Open item for binary distribution: the MIT- and Zlib-licensed crates are statically linked.
+Their licences ask that the copyright notice travel with copies. A release should therefore
+add a generated third-party licence bundle (for example with `cargo about`). Not done yet;
+CI artifacts are not a release.
 
 ## Upstream-derived material
 
@@ -39,6 +53,7 @@ cannot be invented here.
 | `dumpsys thermalservice` / `battery` formats | AOSP `frameworks/base` @ 1cdfff55 (Apache-2.0) | Parser written against the format | None |
 | Service names (`vendor.thermal-hal`, `vendor.thermal-engine`) | AOSP init `.rc` files (Apache-2.0) | Identifiers | None |
 | MediaTek service names (`thermal`, `thermal_manager`, `thermalloadalgod`) | TheMuppets proprietary_vendor_xiaomi_mt6768-common @ b62d70f6 (proprietary blobs) | Identifiers only; files not copied | None; vendor files are not redistributed |
+| Xiaomi service name (`mi_thermald`) | TheMuppets proprietary_vendor_xiaomi_sm8250-common @ 8e68dad4 `init.mi_thermald.rc` (proprietary blobs) | Identifier only; file not copied | None |
 | MediaTek legacy zone names (`mtkts*`) | MiCode Xiaomi_Kernel_OpenSource @ 0f68431c (GPL-2.0) | Identifier prefix only; no code copied | None |
 | `profiles/google-shusky.json` | Facts from AOSP `device/google/shusky` @ a3188edb and `device/google/zuma` @ ed3585cd (Apache-2.0) | Written by hand; cites the sources | None |
 

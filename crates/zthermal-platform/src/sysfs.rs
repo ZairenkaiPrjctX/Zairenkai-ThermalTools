@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Linux thermal sysfs discovery: thermal zones, cooling devices and hwmon sensors.
 //!
 //! Read-only. Units follow the kernel ABI: `thermal_zoneN/temp` and `trip_point_N_temp` are

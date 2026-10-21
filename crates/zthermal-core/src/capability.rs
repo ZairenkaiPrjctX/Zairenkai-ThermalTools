@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Capability model: what the toolkit can do on this device, and how sure it is.
 //!
 //! Recognizing a manufacturer, identifying a SoC, detecting an implementation, parsing a

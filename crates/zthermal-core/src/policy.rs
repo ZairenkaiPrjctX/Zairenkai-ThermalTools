@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Policy modes, writable-control descriptors and the adaptive decision state machine.
 //!
 //! Three rules hold everywhere:

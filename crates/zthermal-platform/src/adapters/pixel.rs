@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Pixel / Google Tensor: the Pixel Thermal HAL and `thermal_info_config*.json`.
 //!
 //! The HAL reads `/vendor/etc/` + the `vendor.thermal.config` property (default

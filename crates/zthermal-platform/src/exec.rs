@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Running Android tools (`getprop`, `dumpsys`) with an argument list, a timeout and an
 //! output cap. Never through a shell; tests use [`FakeRunner`].
 

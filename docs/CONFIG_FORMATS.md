@@ -131,8 +131,14 @@ HAL's threshold arrays only; they are not assumed for other algorithms. A malfor
 either side is also `changes_thermal_behaviour`, with a note that the HAL would reject it.
 
 Qualcomm rules: a removed mitigation section, a removed `shutdown` action, an added
-`disable` flag, a trigger or clear value moved later (higher, or lower with `descending`),
-and a changed `algo_type` or `descending` weaken protection.
+`disable` flag, and a trigger or clear value moved later (higher, or lower with
+`descending`) weaken protection.
+
+These rules are deliberately conservative. A changed `algo_type` or `descending` flag is also
+reported as `weakens_protection` (exit 3), although its direction cannot be determined from
+the file: it changes how every value in the section is read. Treat it as "needs review", not
+as proven weakening. Qualcomm diffs never report `strengthens_protection` or
+`changes_thermal_behaviour`, because the engine's semantics are not publicly documented.
 
 ## MediaTek and Xiaomi
 

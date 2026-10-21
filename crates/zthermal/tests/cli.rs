@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! End-to-end tests of the `zthermal` binary against the synthetic fixtures in
 //! `tests/fixtures` (repository root). No test touches the host's /sys, /proc or /vendor:
 //! every device command runs with `--root`.

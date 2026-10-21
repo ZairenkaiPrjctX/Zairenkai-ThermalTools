@@ -12,7 +12,7 @@
 | Visibility | private | Verified. Evidence: GitHub API |
 | Default branch | `dev` | Verified. Evidence: `git ls-remote` (origin/dev), 2026-10-20 |
 | Purpose | Read-only thermal diagnostics, vendor thermal configuration analysis, safe policy planning | Verified. Evidence: `crates/`, `docs/ARCHITECTURE.md` |
-| Licence | none chosen (no `LICENSE` file) | Verified. Evidence: repository tree |
+| Licence | Apache-2.0 (`LICENSE`, `NOTICE`, Cargo `license`, SPDX headers) | Verified. Evidence: maintainer decision 2026-10-21; `cargo metadata` reports Apache-2.0 for all crates |
 
 ## Contents
 
@@ -20,7 +20,7 @@
 |---|---|---|
 | Rust workspace (MSRV 1.85; deps serde, serde_json, sha2) | `Cargo.toml`, `Cargo.lock` | Verified. Evidence: `cargo +1.85.0 test --workspace` passed, 2026-10-21 |
 | Core model, parsers, policy (no I/O) | `crates/zthermal-core` | Verified. Evidence: 55 tests, 2026-10-21 |
-| Platform readers, adapters, backups, snapshots, journal | `crates/zthermal-platform` | Verified on fixtures. Evidence: 39 tests, 2026-10-21. **Unverified** on a device |
+| Platform readers, adapters, backups, snapshots, journal | `crates/zthermal-platform` | Verified on fixtures. Evidence: 40 tests, 2026-10-21. **Unverified** on a device |
 | CLI | `crates/zthermal` | Verified on fixtures and a Linux host. Evidence: 14 tests, 6 golden outputs, 2026-10-21 |
 | Profiles (1: `google-shusky`, public source only) | `profiles/` | Verified. Evidence: `profile-validate`, schema check |
 | JSON schemas (4) | `schemas/` | Verified. Evidence: `scripts/check-schemas.py`, 2026-10-21 |
@@ -65,7 +65,7 @@
 
 ## Open questions
 
-- Which licence should the project use? Recommendation: Apache-2.0 (`docs/LICENSING.md`).
+- Should releases ship a generated third-party licence bundle for the statically linked crates (`docs/LICENSING.md`)?
 - Which device runs the first on-device validation (`docs/TESTING.md`)?
 - Which control, if any, should be the first validated descriptor, and on which device is
   it hardware-tested?

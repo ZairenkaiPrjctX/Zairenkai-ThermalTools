@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Semantic diff of two configuration files of the same format.
 //!
 //! Changes are reported per section/key (Qualcomm) or per sensor/cooling device key
@@ -194,6 +196,9 @@ fn raised(old: &str, new: &str, descending: bool) -> bool {
     })
 }
 
+/// Qualcomm classification is deliberately conservative: the engine is undocumented, so a
+/// changed `algo_type` or `descending` (direction unknown) is still reported as weakening and
+/// nothing is ever reported as strengthening.
 fn qcom_safety(key: &str, old: Option<&str>, new: Option<&str>, sec: &Section) -> Option<String> {
     let trigger_keys = ["thresholds", "thresholds_clr", "set_point", "set_point_clr"];
     match (old, new) {

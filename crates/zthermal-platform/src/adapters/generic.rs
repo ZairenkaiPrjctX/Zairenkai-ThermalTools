@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Capabilities every Linux/Android device can offer: kernel thermal sysfs, hwmon and the
 //! Android framework diagnostics. Controls are never offered here.
 

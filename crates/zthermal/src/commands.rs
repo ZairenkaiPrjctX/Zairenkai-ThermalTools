@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Command implementations. Every command reads; only `apply` (without `--dry-run`) and
 //! `rollback` can write, and both go through the transaction layer's safety checks.
 

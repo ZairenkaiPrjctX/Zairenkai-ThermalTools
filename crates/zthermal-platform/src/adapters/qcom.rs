@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Qualcomm: the proprietary `thermal-engine` daemon and its `thermal-engine*.conf`.
 //!
 //! Newer Qualcomm platforms may ship no thermal-engine configuration at all; absence is

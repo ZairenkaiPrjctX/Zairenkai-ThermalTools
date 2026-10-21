@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Recognizing files this toolkit must not interpret: binary, encrypted or compressed data.
 //!
 //! Detection only. No decryption, decoding or key search is ever attempted.

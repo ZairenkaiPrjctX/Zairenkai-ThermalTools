@@ -72,7 +72,7 @@ What Core does (`crates/zcore-platform/src/thermaltools.rs` in Zairenkai-Core):
 - **Checks before running.** The file must be named `zthermal`, a regular executable, and
   owned by root, with no group- or world-writable component on its path (Core runs as root).
   `/data/local/tmp` therefore never qualifies.
-- **What runs.** Only `zthermal snapshot`, with no shell, a cleared environment, a 15 s timeout
+- **What runs.** Only `zthermal snapshot`, with no shell, a cleared environment, a 5 s timeout
   and a 1 MiB output cap. Write subcommands (`apply`, `rollback`, `backup-config`) are refused
   by name before anything runs.
 - **What is read.** `schema_version` (must be 1), `tool_version`,

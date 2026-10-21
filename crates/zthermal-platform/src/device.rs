@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Device facts: Android properties, kernel release, framework dumps.
 //!
 //! Every source can be missing. A failure is recorded with its reason and the matching

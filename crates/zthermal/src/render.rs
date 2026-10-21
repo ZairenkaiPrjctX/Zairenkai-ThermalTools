@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Text renderings. JSON output is the serde form of the same data.
 
 use std::fmt::Write as _;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! Vendor adapters: which thermal implementation a device ships, where its configuration
 //! lives, and what can be read from it.
 //!

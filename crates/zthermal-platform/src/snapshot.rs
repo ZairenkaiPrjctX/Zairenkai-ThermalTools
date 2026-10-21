@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 ZairenkaiPrjctX contributors
 //! One read-only snapshot of everything the toolkit can learn about a device, and its
 //! redaction. A snapshot stays on the device or host unless the user moves it.
 
