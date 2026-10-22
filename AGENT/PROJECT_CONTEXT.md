@@ -9,7 +9,7 @@
 |---|---|---|
 | Repository | `ZairenkaiPrjctX/Zairenkai-ThermalTools` | Verified. Evidence: GitHub API |
 | GitHub description | (none set) | Verified. Evidence: GitHub API |
-| Visibility | private | Verified. Evidence: GitHub API |
+| Visibility | public | Verified. Evidence: `list_repos`, 2026-10-22 (earlier entries said private) |
 | Default branch | `dev` | Verified. Evidence: `git ls-remote` (origin/dev), 2026-10-20 |
 | Purpose | Read-only thermal diagnostics, vendor thermal configuration analysis, safe policy planning | Verified. Evidence: `crates/`, `docs/ARCHITECTURE.md` |
 | Licence | Apache-2.0 (`LICENSE`, `NOTICE`, Cargo `license`, SPDX headers) | Verified. Evidence: maintainer decision 2026-10-21; `cargo metadata` reports Apache-2.0 for all crates |
